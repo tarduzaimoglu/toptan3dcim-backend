@@ -1,0 +1,69 @@
+{
+  "kind": "collectionType",
+  "collectionName": "products",
+  "info": {
+    "singularName": "product",
+    "pluralName": "products",
+    "displayName": "Product"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true
+    },
+    "image": {
+      "type": "media",
+      "multiple": true,
+      "required": true,
+      "allowedTypes": [
+        "images",
+        "files"
+      ]
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": true
+    },
+    "featured": {
+      "type": "boolean"
+    },
+    "order": {
+      "type": "integer",
+      "default": 0
+    },
+    "wholesalePrice": {
+      "type": "decimal",
+      "required": true
+    },
+    "minQtyText": {
+      "type": "string"
+    },
+    "bullets": {
+      "type": "text"
+    },
+    "specs": {
+      "type": "blocks"
+    },
+    "qtyNoteRich": {
+      "type": "blocks"
+    },
+    "category_product": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::category-product.category-product",
+      "inversedBy": "products"
+    },
+    "minQty": {
+      "type": "integer"
+    }
+  }
+}
