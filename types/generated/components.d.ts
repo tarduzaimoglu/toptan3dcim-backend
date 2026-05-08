@@ -9,6 +9,21 @@ export interface SharedMedia extends Struct.ComponentSchema {
   attributes: {};
 }
 
+export interface SharedProductVariant extends Struct.ComponentSchema {
+  collectionName: 'components_shared_product_variants';
+  info: {
+    displayName: 'ProductVariant';
+    icon: 'paint';
+  };
+  attributes: {
+    ColorCode: Schema.Attribute.String;
+    ColorName: Schema.Attribute.String;
+    VariantImage: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios'
+    >;
+  };
+}
+
 export interface SharedQuote extends Struct.ComponentSchema {
   collectionName: 'components_shared_quotes';
   info: {
@@ -64,6 +79,7 @@ declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
       'shared.media': SharedMedia;
+      'shared.product-variant': SharedProductVariant;
       'shared.quote': SharedQuote;
       'shared.rich-text': SharedRichText;
       'shared.seo': SharedSeo;

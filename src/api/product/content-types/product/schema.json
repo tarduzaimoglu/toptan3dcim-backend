@@ -44,16 +44,10 @@
       "type": "decimal",
       "required": true
     },
-    "minQtyText": {
-      "type": "string"
-    },
     "bullets": {
       "type": "text"
     },
     "specs": {
-      "type": "blocks"
-    },
-    "qtyNoteRich": {
       "type": "blocks"
     },
     "category_product": {
@@ -64,6 +58,11 @@
     },
     "minQty": {
       "type": "integer"
+    },
+    "variants": {
+      "type": "component",
+      "component": "shared.product-variant",
+      "repeatable": true
     }
   }
 }

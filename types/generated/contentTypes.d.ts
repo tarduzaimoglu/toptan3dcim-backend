@@ -759,16 +759,15 @@ export interface ApiProductProduct extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     minQty: Schema.Attribute.Integer;
-    minQtyText: Schema.Attribute.String;
     order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     publishedAt: Schema.Attribute.DateTime;
-    qtyNoteRich: Schema.Attribute.Blocks;
     slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
     specs: Schema.Attribute.Blocks;
     title: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    variants: Schema.Attribute.Component<'shared.product-variant', true>;
     wholesalePrice: Schema.Attribute.Decimal & Schema.Attribute.Required;
   };
 }
