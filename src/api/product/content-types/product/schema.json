@@ -63,6 +63,9 @@
       "type": "component",
       "component": "shared.product-variant",
       "repeatable": true
+    },
+    "description": {
+      "type": "blocks"
     }
   }
 }
