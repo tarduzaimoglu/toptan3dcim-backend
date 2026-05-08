@@ -19,7 +19,8 @@ export interface SharedProductVariant extends Struct.ComponentSchema {
     ColorCode: Schema.Attribute.String;
     ColorName: Schema.Attribute.String;
     VariantImage: Schema.Attribute.Media<
-      'images' | 'files' | 'videos' | 'audios'
+      'images' | 'files' | 'videos' | 'audios',
+      true
     >;
   };
 }
