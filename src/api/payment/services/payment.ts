@@ -148,12 +148,12 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
     // indirim uygulanmış KDV dahil net satış tutarıdır ve doğrudan grandTotal'a
     // girer - KDV ayrıca toplama EKLENMEZ. vatTotal sadece bilgilendirme
     // amaçlıdır (dahil KDV ayrıştırması): toplam * oran/(1+oran).
-    // Kargo: frontend'de (app/cart/page.tsx) somut bir kargo ücreti hesabı yok,
-    // sadece "1500 TL üzeri ücretsiz / altında Hesaplanacak" bilgisi var. Bu
-    // yüzden şimdilik 0 sabitlenmiştir.
+    // Kargo: discountedKurus (indirimli, KDV dahil sepet toplamı) 1500 TL'ye
+    // ulaşıyorsa (dahil) ücretsiz, altındaysa sabit 200 TL. frontend/lib/pricing.ts
+    // shippingFeeFor ile birebir aynı kural - bkz. pricing.ts.
     const discountedKurus = subtotalKurus - discountKurus;
     const vatKurus = Math.round((discountedKurus * VAT_RATE) / (1 + VAT_RATE));
-    const shippingKurus = 0;
+    const shippingKurus = pricing.shippingFeeForKurus(discountedKurus);
     const grandTotalKurus = discountedKurus + shippingKurus;
 
     if (grandTotalKurus <= 0) {
