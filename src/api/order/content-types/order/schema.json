@@ -1,0 +1,107 @@
+{
+  "kind": "collectionType",
+  "collectionName": "orders",
+  "info": {
+    "singularName": "order",
+    "pluralName": "orders",
+    "displayName": "Order"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "orderNumber": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["pending", "paid", "failed", "cancelled"],
+      "default": "pending",
+      "required": true
+    },
+    "items": {
+      "type": "json",
+      "required": true
+    },
+    "subtotal": {
+      "type": "integer",
+      "required": true,
+      "default": 0
+    },
+    "discountTotal": {
+      "type": "integer",
+      "required": true,
+      "default": 0
+    },
+    "vatTotal": {
+      "type": "integer",
+      "required": true,
+      "default": 0
+    },
+    "shippingCost": {
+      "type": "integer",
+      "required": true,
+      "default": 0
+    },
+    "grandTotal": {
+      "type": "integer",
+      "required": true,
+      "default": 0
+    },
+    "currency": {
+      "type": "string",
+      "required": true,
+      "default": "TRY"
+    },
+    "buyerName": {
+      "type": "string",
+      "required": true
+    },
+    "buyerEmail": {
+      "type": "email",
+      "required": true
+    },
+    "buyerPhone": {
+      "type": "string",
+      "required": true
+    },
+    "shippingAddress": {
+      "type": "json"
+    },
+    "contractAccepted": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "contractAcceptedAt": {
+      "type": "datetime"
+    },
+    "posnetXid": {
+      "type": "string",
+      "unique": true
+    },
+    "ykbRefNo": {
+      "type": "string"
+    },
+    "authCode": {
+      "type": "string"
+    },
+    "hostlogkey": {
+      "type": "string"
+    },
+    "bankResponseRaw": {
+      "type": "json"
+    },
+    "clientIp": {
+      "type": "string"
+    },
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    }
+  }
+}
