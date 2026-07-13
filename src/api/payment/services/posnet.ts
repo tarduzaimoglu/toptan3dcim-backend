@@ -172,7 +172,12 @@ function buildXml(body: Record<string, unknown>): string {
   const payload = {
     posnetRequest: body,
   };
-  return `<?xml version="1.0" encoding="ISO-8859-9"?>\n${xmlBuilder.build(payload)}`;
+  // encoding="UTF-8": postXml gövdeyi encodeURIComponent (UTF-8 byte'ları) ile
+  // encode edip Content-Type'ı charset=utf-8 olarak gönderiyor (docs/1.pdf 2.3/3.3:
+  // "UTF-8 encoding desteklenmelidir"). Prolog burada gerçek transport encoding'i
+  // ile eşleşmezse (ör. ISO-8859-9 yazıp UTF-8 byte göndermek), Türkçe karakter
+  // içeren herhangi bir alan bankada mojibake'e yol açar.
+  return `<?xml version="1.0" encoding="UTF-8"?>\n${xmlBuilder.build(payload)}`;
 }
 
 interface PosnetResponse {
