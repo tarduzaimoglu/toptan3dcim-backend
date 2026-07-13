@@ -51,24 +51,49 @@ function generateOrderNumber(): string {
 }
 
 export default ({ strapi }: { strapi: Core.Strapi }) => ({
+  // strapi.documents(...) çağrıları status parametresi verilmezse Document
+  // Service'in kendi varsayılanı olan 'draft' ile sorgulanır (bkz.
+  // @strapi/core draft-and-publish.js defaultStatus). Halbuki frontend, ürünleri
+  // otomatik REST controller'ı (CoreService.getFetchParams -> status: 'published')
+  // üzerinden çektiği için product.id her zaman YAYINLANMIŞ satırın numeric id'sidir.
+  // draftAndPublish açık olduğunda draft/published satırlar farklı numeric id'lere
+  // sahip olduğundan, status belirtilmeden yapılan sorgu published id'yi asla
+  // bulamaz. Bu yüzden burada status: 'published' açıkça verilmelidir - ödeme akışı
+  // zaten yalnızca yayınlanmış ürünler için geçerli olmalıdır.
   async findProduct(productId: string) {
     const numericId = Number(productId);
-    if (Number.isInteger(numericId) && String(numericId) === productId) {
+    const isNumeric = Number.isInteger(numericId) && String(numericId) === productId;
+    const attempted: string[] = [];
+
+    if (isNumeric) {
+      attempted.push('id(published)');
       const results = await strapi.documents('api::product.product').findMany({
         filters: { id: { $eq: numericId } },
+        status: 'published',
         fields: ['title', 'wholesalePrice', 'isActive'],
       });
       if (results[0]) return results[0];
     }
 
+    attempted.push('documentId(published)');
     try {
-      return await strapi.documents('api::product.product').findOne({
+      const product = await strapi.documents('api::product.product').findOne({
         documentId: productId,
+        status: 'published',
         fields: ['title', 'wholesalePrice', 'isActive'],
       });
-    } catch {
+      if (product) return product;
+    } catch (err) {
+      strapi.log.warn(
+        `payment.findProduct: documentId sorgusu hata verdi, productId=${productId}, denenenler=[${attempted.join(', ')}], hata=${(err as Error).message}`
+      );
       return null;
     }
+
+    strapi.log.warn(
+      `payment.findProduct: ürün hiçbir sorguyla bulunamadı, productId=${productId}, denenenler=[${attempted.join(', ')}]`
+    );
+    return null;
   },
 
   async markFailed(documentId: string, reasonCode: string) {
@@ -123,7 +148,14 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
 
     for (const it of normalizedItems) {
       const product = await this.findProduct(it.productId);
-      if (!product || product.isActive === false) {
+      if (!product) {
+        // findProduct zaten hangi sorguların denendiğini logladı; burada sadece
+        // müşteriye dönecek genel mesajı fırlatıyoruz (ürün id enumeration'a
+        // karşı kasıtlı olarak "yok" ile "pasif" ayrımı müşteriye sızdırılmıyor).
+        throw new PaymentValidationError(`Ürün bulunamadı veya satışa kapalı: ${it.productId}`);
+      }
+      if (product.isActive === false) {
+        strapi.log.warn(`payment.initiate: ürün pasif (isActive=false), productId=${it.productId}`);
         throw new PaymentValidationError(`Ürün bulunamadı veya satışa kapalı: ${it.productId}`);
       }
 
