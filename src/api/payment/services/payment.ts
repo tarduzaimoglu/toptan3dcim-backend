@@ -22,9 +22,29 @@ const VAT_RATE = 0.2;
 
 export class PaymentValidationError extends Error {}
 
+const MAX_VARIANT_COLOR_NAME_LENGTH = 100;
+
+interface InitiateItemVariantInput {
+  colorName: string;
+  [key: string]: string;
+}
+
 interface InitiateItemInput {
   productId: string | number;
   qty: number;
+  variant?: InitiateItemVariantInput | null;
+}
+
+// variant opsiyoneldir; geçersiz/anlamsız geldiğinde hata fırlatmak yerine
+// sessizce null'a düşürülür (fiyat hesabını etkilemez, sadece Order.items'a
+// bilgi amaçlı yazılır).
+function normalizeVariant(input: unknown): InitiateItemVariantInput | null {
+  if (!input || typeof input !== 'object') return null;
+  const colorName = (input as Record<string, unknown>).colorName;
+  if (typeof colorName !== 'string') return null;
+  const trimmed = colorName.trim();
+  if (!trimmed || trimmed.length > MAX_VARIANT_COLOR_NAME_LENGTH) return null;
+  return { colorName: trimmed };
 }
 
 interface InitiateBuyerInput {
@@ -128,6 +148,7 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
     const normalizedItems = items.map((it) => ({
       productId: String(it?.productId ?? ''),
       qty: Number(it?.qty),
+      variant: normalizeVariant(it?.variant),
     }));
 
     for (const it of normalizedItems) {
@@ -142,6 +163,7 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
       adet: number;
       birimFiyat: number;
       satirToplami: number;
+      variant: InitiateItemVariantInput | null;
     }> = [];
     let subtotalKurus = 0;
     let discountKurus = 0;
@@ -173,6 +195,7 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
         adet: it.qty,
         birimFiyat: toKurus(unitPrice),
         satirToplami: lineKurus,
+        variant: it.variant,
       });
     }
 
