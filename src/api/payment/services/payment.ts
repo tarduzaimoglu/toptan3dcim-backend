@@ -257,6 +257,13 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
         currencyCode: CURRENCY_CODE,
         installment: '00',
         tranType: 'Sale',
+        // Kart bilgileri banka OOS sayfasında toplanıyor (docs/2.pdf: "cardHolderName,
+        // ccno, expDate, cvc alanlarına XML içerisinde yer verilmez veya boş bırakılır").
+        // "Yer verilmez" varyantı denenmişti; burada "boş bırakılır" varyantı deneniyor.
+        cardHolderName: '',
+        ccno: '',
+        expDate: '',
+        cvc: '',
       },
     });
 
