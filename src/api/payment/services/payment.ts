@@ -314,9 +314,28 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
     // Xid form alanı dokümana göre bilgi amaçlıdır; sadece Order'ı bulmak için
     // kullanılır, tutar/xid doğrulaması oosResolveMerchantDataResponse ile yapılır.
     const xidFromForm = typeof body.Xid === 'string' ? body.Xid : '';
+    // Dokümante edilmemiş ama canlıda görülen banka hata alanı: bazı durumlarda
+    // (ör. bağlantı/IP-MID-TID reddi) banka tam MerchantPacket/BankPacket/Sign seti
+    // yerine sadece bu alanı gönderiyor.
+    const bankReasonCode = typeof body.reasonCode === 'string' ? body.reasonCode : undefined;
 
     if (!bankData || !merchantData || !sign || !xidFromForm) {
-      return { success: false, orderNumber: undefined, reason: 'MISSING_CALLBACK_FIELDS' };
+      // Xid yine de gelmişse (ör. sadece reasonCode ile birlikte kısmi bir hata
+      // payload'u), ilgili Order'ı bulup failed olarak işaretlemeliyiz - aksi halde
+      // sipariş sonsuza kadar 'pending' kalır ve hiçbir yerde hata kaydı oluşmaz.
+      if (xidFromForm) {
+        const orders = await strapi.documents('api::order.order').findMany({
+          filters: { posnetXid: { $eq: xidFromForm } },
+          limit: 1,
+        });
+        const order = orders[0];
+        const reason = bankReasonCode || 'MISSING_CALLBACK_FIELDS';
+        if (order && order.status === 'pending') {
+          await this.markFailed(order.documentId, reason);
+        }
+        return { success: false, orderNumber: order?.orderNumber, reason };
+      }
+      return { success: false, orderNumber: undefined, reason: bankReasonCode || 'MISSING_CALLBACK_FIELDS' };
     }
 
     const orders = await strapi.documents('api::order.order').findMany({
