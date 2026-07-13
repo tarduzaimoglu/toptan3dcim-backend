@@ -20,11 +20,69 @@ const xmlBuilder = new XMLBuilder({ ignoreAttributes: true, format: false });
 const xmlParser = new XMLParser({ ignoreAttributes: true, parseTagValue: false });
 
 export function requiredEnv(name: string): string {
-  const value = process.env[name];
+  // .trim(): Railway'e kopyala-yapıştır ile girilen değerlerde satır sonu/boşluk
+  // karışması, bankanın "10 karakterden fazla olamaz" gibi uzunluk hatalarına yol
+  // açabiliyor (bkz. logEnvDiagnostics).
+  const value = process.env[name]?.trim();
   if (!value) {
     throw new Error(`${name} ortam değişkeni tanımlı değil`);
   }
   return value;
+}
+
+function maskValue(value: string): string {
+  if (value.length <= 4) return '*'.repeat(value.length);
+  return `${value.slice(0, 2)}${'*'.repeat(value.length - 4)}${value.slice(-2)}`;
+}
+
+function describeHiddenChars(value: string): string[] {
+  const found = new Set<string>();
+  for (const ch of value) {
+    const code = ch.charCodeAt(0);
+    if (ch === '\r') found.add('\\r');
+    else if (ch === '\n') found.add('\\n');
+    else if (ch === '\t') found.add('\\t');
+    else if (ch === ' ') found.add('NBSP');
+    else if (ch === '﻿') found.add('BOM');
+    else if (ch === '​' || ch === '‌' || ch === '‍') found.add('ZERO-WIDTH');
+    else if (code < 0x20) found.add(`CTRL(0x${code.toString(16)})`);
+  }
+  return Array.from(found);
+}
+
+/**
+ * GEÇİCİ TEŞHİS LOGU: Posnet'in "Merchant No 10 karakterden fazla olamaz"
+ * (E170) hatasının, Railway'deki env değerlerine kopyala-yapıştırdan sızan
+ * whitespace/satır sonu karakterlerinden kaynaklanıp kaynaklanmadığını
+ * doğrulamak için eklendi. Kök neden teyit edildikten sonra kaldırılabilir.
+ * Ham değerler asla düz yazılmaz; sadece uzunluk ve maskelenmiş hali loglanır.
+ */
+export function logEnvDiagnostics(log: { warn: (message: string) => void }): void {
+  const entries: Array<[string, string | undefined]> = [
+    ['POSNET_MERCHANT_ID', process.env.POSNET_MERCHANT_ID],
+    ['POSNET_TERMINAL_ID', process.env.POSNET_TERMINAL_ID],
+    ['POSNET_ID', process.env.POSNET_ID],
+  ];
+
+  for (const [name, raw] of entries) {
+    if (raw === undefined) {
+      log.warn(`Posnet env teşhis: ${name} tanımlı değil`);
+      continue;
+    }
+
+    const trimmed = raw.trim();
+    const hidden = describeHiddenChars(raw);
+    const parts = [
+      `Posnet env teşhis: ${name}`,
+      `hamUzunluk=${raw.length}`,
+      `trimliUzunluk=${trimmed.length}`,
+      `maske=${maskValue(trimmed)}`,
+    ];
+    if (hidden.length > 0) {
+      parts.push(`GİZLİ KARAKTER BULUNDU: [${hidden.join(', ')}]`);
+    }
+    log.warn(parts.join(' '));
+  }
 }
 
 export interface PosnetConfig {
@@ -161,6 +219,7 @@ async function postXml(config: PosnetConfig, xml: string, correlationId: string)
 
 export default {
   requiredEnv,
+  logEnvDiagnostics,
   getConfig,
   generateXid,
   buildRequestMac,

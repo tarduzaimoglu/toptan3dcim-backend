@@ -240,6 +240,11 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
       },
     });
 
+    // GEÇİCİ TEŞHİS: "Merchant No 10 karakterden fazla olamaz" hatasının Railway
+    // env değerlerindeki gizli whitespace/satır sonu karakterlerinden kaynaklanıp
+    // kaynaklanmadığını doğrulamak için eklendi (bkz. posnet.logEnvDiagnostics).
+    posnet.logEnvDiagnostics(strapi.log);
+
     const config = posnet.getConfig();
 
     const requestXml = posnet.buildXml({
