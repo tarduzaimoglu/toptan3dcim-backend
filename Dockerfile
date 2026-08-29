@@ -33,14 +33,15 @@ WORKDIR /opt/app
 
 COPY --from=build /opt/app/package.json /opt/app/package-lock.json ./
 COPY --from=build /opt/app/node_modules ./node_modules
-COPY --from=build /opt/app/dist ./dist
+COPY --from=build /opt/app/dist/ ./
 COPY --from=build /opt/app/public ./public
 COPY --from=build /opt/app/favicon.png ./favicon.png
 
-# Strapi assigns every upload a tmpWorkingDirectory under TMPDIR. Keep the
-# application root read-only for the runtime user and grant access only here.
-RUN mkdir -p /opt/app/.tmp && \
-    chown node:node /opt/app/.tmp
+# Keep compiled application code immutable while granting the runtime user
+# access only to Strapi's migration path and the WebP extension's temp path.
+RUN mkdir -p /opt/app/database/migrations /opt/app/.tmp && \
+    chown -R node:node /opt/app/database /opt/app/.tmp && \
+    chmod 0755 /opt/app/database /opt/app/database/migrations /opt/app/.tmp
 
 USER node
 
