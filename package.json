@@ -19,6 +19,7 @@
     "@strapi/plugin-cloud": "5.43.0",
     "@strapi/plugin-users-permissions": "5.43.0",
     "@strapi/provider-upload-aws-s3": "^5.44.0",
+    "@strapi/provider-upload-local": "5.43.0",
     "@strapi/strapi": "5.43.0",
     "better-sqlite3": "12.8.0",
     "fast-xml-parser": "^5.7.2",
