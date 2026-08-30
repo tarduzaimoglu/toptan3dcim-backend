@@ -17,7 +17,14 @@ const config: Core.Config.Middlewares = [
       },
     },
   },
-  'strapi::cors',
+  {
+    name: 'strapi::cors',
+    config: {
+      origin: ['https://toptan3dcim.com', 'https://www.toptan3dcim.com'],
+      credentials: true,
+      keepHeaderOnError: true,
+    },
+  },
   'strapi::poweredBy',
   'strapi::query',
   'strapi::body',
