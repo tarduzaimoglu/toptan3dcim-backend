@@ -36,6 +36,7 @@ COPY --from=build /opt/app/node_modules ./node_modules
 COPY --from=build /opt/app/dist/ ./
 COPY --from=build /opt/app/public ./public
 COPY --from=build /opt/app/favicon.png ./favicon.png
+COPY --from=build /opt/app/scripts/migrate-custom-product-types.js ./scripts/migrate-custom-product-types.js
 
 # Keep compiled application code immutable while granting the runtime user
 # access only to Strapi's migration path and the WebP extension's temp path.
