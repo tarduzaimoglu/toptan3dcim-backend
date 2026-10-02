@@ -1,0 +1,19 @@
+{
+  "kind": "collectionType",
+  "collectionName": "figurine_return_requests",
+  "info": { "singularName": "figurine-return-request", "pluralName": "figurine-return-requests", "displayName": "Figurine cancellation or return request" },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": { "content-manager": { "visible": false }, "content-type-builder": { "visible": false } },
+  "attributes": {
+    "idempotencyKey": { "type": "string", "required": true, "unique": true, "private": true },
+    "reason": { "type": "text", "required": true },
+    "state": { "type": "enumeration", "enum": ["submitted", "reviewing", "accepted", "rejected"], "default": "submitted", "required": true },
+    "customerNote": { "type": "text" },
+    "staffNote": { "type": "text", "private": true },
+    "decisionAt": { "type": "datetime" },
+    "actor": { "type": "string", "private": true },
+    "order": { "type": "relation", "relation": "manyToOne", "target": "api::order.order", "required": true, "private": true },
+    "request": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-request.figurine-request", "private": true },
+    "owner": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user", "required": true, "private": true }
+  }
+}

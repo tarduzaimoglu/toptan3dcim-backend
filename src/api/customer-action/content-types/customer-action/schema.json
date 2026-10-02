@@ -1,0 +1,48 @@
+{
+  "kind": "collectionType",
+  "collectionName": "customer_actions",
+  "indexes": [{ "name": "customer_action_tokenHash_unique", "columns": ["token_hash"], "type": "unique" }],
+  "info": {
+    "singularName": "customer-action",
+    "pluralName": "customer-actions",
+    "displayName": "customer-action"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "tokenHash": {
+      "type": "string",
+      "unique": true,
+      "private": true
+    },
+    "purpose": {
+      "type": "string"
+    },
+    "targetEmail": {
+      "type": "email",
+      "private": true
+    },
+    "expiresAt": {
+      "type": "datetime"
+    },
+    "usedAt": {
+      "type": "datetime"
+    },
+    "order": { "type": "relation", "relation": "manyToOne", "target": "api::order.order", "private": true },
+    "owner": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "private": true
+    }
+  }
+}

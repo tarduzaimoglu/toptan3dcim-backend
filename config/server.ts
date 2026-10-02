@@ -7,6 +7,7 @@ const config = ({ env }: Core.Config.Shared.ConfigParams): Core.Config.Server =>
   proxy: {
     koa: true,
   },
+  cron: { enabled: process.env.CUSTOMER_ACCOUNTS_ENABLED === 'true' },
   app: {
     keys: env.array('APP_KEYS'),
   },

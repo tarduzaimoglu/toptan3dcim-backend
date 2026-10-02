@@ -4,6 +4,8 @@
   "private": true,
   "description": "A Strapi application",
   "scripts": {
+    "test:accounts": "node --import tsx tests/customer.integration.test.ts",
+    "test:accounts:e2e": "node --import tsx tests/customer.integration.test.ts --e2e",
     "build": "strapi build",
     "console": "strapi console",
     "deploy": "strapi deploy",
@@ -26,6 +28,7 @@
     "fast-xml-parser": "^5.7.2",
     "fs-extra": "^10.0.0",
     "mime-types": "^2.1.27",
+    "nodemailer": "^6.10.1",
     "pg": "^8.20.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",

@@ -1,0 +1,41 @@
+{
+  "kind": "collectionType",
+  "collectionName": "customer_mails",
+  "info": {
+    "singularName": "customer-mail",
+    "pluralName": "customer-mails",
+    "displayName": "customer-mail"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "lockUntil": { "type": "datetime", "private": true },
+    "recipient": {
+      "type": "email",
+      "private": true
+    },
+    "encryptedPayload": {
+      "type": "text",
+      "private": true
+    },
+    "status": {
+      "type": "string"
+    },
+    "attempts": {
+      "type": "integer",
+      "default": 0
+    },
+    "expiresAt": {
+      "type": "datetime"
+    }
+  }
+}

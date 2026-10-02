@@ -1,0 +1,28 @@
+{
+  "kind": "collectionType",
+  "collectionName": "figurine_offers",
+  "info": { "singularName": "figurine-offer", "pluralName": "figurine-offers", "displayName": "Figurine offer version" },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": { "content-manager": { "visible": false }, "content-type-builder": { "visible": false } },
+  "attributes": {
+    "version": { "type": "integer", "required": true },
+    "state": { "type": "enumeration", "enum": ["draft", "offered", "accepted", "changes-requested", "superseded", "withdrawn"], "default": "draft", "required": true },
+    "scope": { "type": "json", "required": true },
+    "amountMinor": { "type": "integer", "required": true, "min": 1 },
+    "taxMinor": { "type": "integer", "required": true, "min": 0 },
+    "shippingMinor": { "type": "integer", "required": true, "min": 0 },
+    "totalMinor": { "type": "integer", "required": true, "min": 1 },
+    "currency": { "type": "string", "required": true, "default": "TRY" },
+    "taxShippingDisclosure": { "type": "text", "required": true },
+    "customerNote": { "type": "text" },
+    "internalNote": { "type": "text", "private": true },
+    "validUntil": { "type": "datetime" },
+    "offeredAt": { "type": "datetime" },
+    "acceptedAt": { "type": "datetime" },
+    "approvalInvalidatedAt": { "type": "datetime" },
+    "acceptedBy": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user", "private": true },
+    "createdByAdmin": { "type": "string", "private": true },
+    "request": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-request.figurine-request", "required": true, "private": true },
+    "order": { "type": "relation", "relation": "oneToOne", "target": "api::order.order", "private": true }
+  }
+}

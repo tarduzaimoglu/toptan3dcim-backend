@@ -1,0 +1,20 @@
+{
+  "kind": "collectionType", "collectionName": "figurine_upload_sessions",
+  "info": { "singularName": "figurine-upload-session", "pluralName": "figurine-upload-sessions", "displayName": "Figurine upload sessions" },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": { "content-manager": { "visible": false }, "content-type-builder": { "visible": false } },
+  "attributes": {
+    "tokenHash": { "type": "string", "required": true, "unique": true, "private": true },
+    "objectKey": { "type": "string", "required": true, "private": true },
+    "draftKey": { "type": "string", "required": true, "private": true },
+    "fileKey": { "type": "string", "required": true, "private": true },
+    "declaredMime": { "type": "string", "private": true },
+    "declaredSize": { "type": "integer", "required": true, "private": true },
+    "expiresAt": { "type": "datetime", "required": true },
+    "completedAt": { "type": "datetime" },
+    "quarantineRemovedAt": { "type": "datetime", "private": true },
+    "owner": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user", "private": true },
+    "draft": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-draft.figurine-draft", "private": true },
+    "asset": { "type": "relation", "relation": "oneToOne", "target": "api::figurine-private-asset.figurine-private-asset", "private": true }
+  }
+}

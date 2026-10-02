@@ -1,0 +1,22 @@
+{
+  "kind": "collectionType", "collectionName": "figurine_requests",
+  "info": { "singularName": "figurine-request", "pluralName": "figurine-requests", "displayName": "Kişiye Özel Figür Talepleri" },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": { "content-manager": { "visible": false }, "content-type-builder": { "visible": false } },
+  "attributes": {
+    "requestNumber": { "type": "string", "required": true, "unique": true },
+    "requestKey": { "type": "string", "required": true, "unique": true, "private": true },
+    "status": { "type": "enumeration", "enum": ["received", "reviewing", "waiting-customer", "change-requested", "quoted", "converted", "closed"], "default": "received", "required": true },
+    "customerStatusText": { "type": "string" },
+    "details": { "type": "json", "required": true },
+    "contactPreference": { "type": "enumeration", "enum": ["email", "whatsapp"], "required": true },
+    "privateNotes": { "type": "text", "private": true },
+    "owner": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user", "required": true },
+    "package": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-package.figurine-package", "required": true },
+    "assets": { "type": "relation", "relation": "manyToMany", "target": "api::figurine-private-asset.figurine-private-asset", "private": true },
+    "internalNotes": { "type": "text", "private": true },
+    "offers": { "type": "relation", "relation": "oneToMany", "target": "api::figurine-offer.figurine-offer", "mappedBy": "request", "private": true },
+    "responses": { "type": "relation", "relation": "oneToMany", "target": "api::figurine-response.figurine-response", "mappedBy": "request", "private": true },
+    "returnRequests": { "type": "relation", "relation": "oneToMany", "target": "api::figurine-return-request.figurine-return-request", "mappedBy": "request", "private": true }
+  }
+}

@@ -1,0 +1,16 @@
+services:
+  customer-stage5-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: customer_test_stage5
+      POSTGRES_USER: customer_test
+      POSTGRES_PASSWORD: customer_test_only
+    ports:
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U customer_test -d customer_test_stage5"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    tmpfs:
+      - /var/lib/postgresql/data

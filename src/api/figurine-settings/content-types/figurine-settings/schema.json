@@ -1,0 +1,12 @@
+{
+  "kind": "singleType", "collectionName": "figurine_settings",
+  "info": { "singularName": "figurine-settings", "pluralName": "figurine-settings-records", "displayName": "Kişiye Özel Figür Bilgilendirme" },
+  "options": { "draftAndPublish": false },
+  "attributes": {
+    "privacyNotice": { "type": "text" },
+    "privacyVersion": { "type": "string" },
+    "priceScopeNote": { "type": "text" },
+    "customerContactNote": { "type": "text" },
+    "galleryEnabled": { "type": "boolean", "default": false }
+  }
+}

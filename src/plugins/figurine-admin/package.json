@@ -1,0 +1,6 @@
+{
+  "name": "figurine-admin",
+  "version": "0.1.0",
+  "private": true,
+  "strapi": { "kind": "plugin", "name": "figurine-admin", "displayName": "Figurine requests", "description": "Private customer figurine request review" }
+}

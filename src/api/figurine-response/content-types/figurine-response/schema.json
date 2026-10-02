@@ -1,0 +1,17 @@
+{
+  "kind": "collectionType",
+  "collectionName": "figurine_responses",
+  "info": { "singularName": "figurine-response", "pluralName": "figurine-responses", "displayName": "Figurine customer response" },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": { "content-manager": { "visible": false }, "content-type-builder": { "visible": false } },
+  "attributes": {
+    "eventKey": { "type": "string", "required": true, "unique": true, "private": true },
+    "kind": { "type": "enumeration", "enum": ["accepted", "change-request", "withdrawn"], "required": true },
+    "comment": { "type": "text" },
+    "actor": { "type": "string", "private": true },
+    "quoteVersion": { "type": "integer", "required": true },
+    "quote": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-offer.figurine-offer", "required": true, "private": true },
+    "request": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-request.figurine-request", "required": true, "private": true },
+    "owner": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user", "required": true, "private": true }
+  }
+}

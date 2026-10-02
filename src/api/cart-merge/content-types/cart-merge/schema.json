@@ -1,0 +1,40 @@
+{
+  "kind": "collectionType",
+  "collectionName": "cart_merges",
+  "info": {
+    "singularName": "cart-merge",
+    "pluralName": "cart-merges",
+    "displayName": "cart-merge"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "indexes": [
+    {
+      "name": "cart_merge_unique",
+      "columns": [
+        "merge_key"
+      ],
+      "type": "unique"
+    }
+  ],
+  "attributes": {
+    "mergeKey": {
+      "type": "string",
+      "required": true,
+      "private": true
+    },
+    "payloadHash": {
+      "type": "string",
+      "private": true
+    }
+  }
+}

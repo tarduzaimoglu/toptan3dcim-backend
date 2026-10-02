@@ -1,0 +1,43 @@
+{
+  "kind": "collectionType",
+  "collectionName": "operation_events",
+  "info": {
+    "singularName": "operation-event",
+    "pluralName": "operation-events",
+    "displayName": "operation-event"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "order": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::order.order",
+      "private": true
+    },
+    "figurineRequest": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-request.figurine-request", "private": true },
+    "actor": {
+      "type": "string",
+      "private": true
+    },
+    "fromState": {
+      "type": "string"
+    },
+    "toState": {
+      "type": "string"
+    },
+    "details": {
+      "type": "json",
+      "private": true
+    }
+  }
+}

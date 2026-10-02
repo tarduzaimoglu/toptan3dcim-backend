@@ -1,0 +1,19 @@
+{
+  "kind": "collectionType",
+  "collectionName": "figurine_packages",
+  "info": { "singularName": "figurine-package", "pluralName": "figurine-packages", "displayName": "Figurine packages" },
+  "options": { "draftAndPublish": false },
+  "attributes": {
+    "key": { "type": "uid", "required": true, "unique": true },
+    "title": { "type": "string", "required": true },
+    "description": { "type": "text" },
+    "style": { "type": "enumeration", "enum": ["color", "monochrome", "custom"], "required": true },
+    "characters": { "type": "integer", "min": 0 },
+    "pets": { "type": "integer", "min": 0 },
+    "startingPrice": { "type": "integer", "min": 0 },
+    "showPrice": { "type": "boolean", "default": true },
+    "active": { "type": "boolean", "default": true },
+    "sortOrder": { "type": "integer", "default": 0 },
+    "gallery": { "type": "media", "multiple": true, "allowedTypes": ["images"] }
+  }
+}

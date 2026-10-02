@@ -1,0 +1,64 @@
+# Customer accounts — Stage 5
+
+This stage completes the release-readiness review and adds limited account preference, deletion-request, and legacy-order claim workflows. It does not deploy, migrate a live database, charge/refund money, or delete real customer records. Stage 1–4 behavior and caveats remain as documented in the earlier stage files.
+
+## Changes in this stage
+
+- `src/api/customer-consent`: append-only per-channel marketing-consent records. The account UI and endpoint remain closed unless `MARKETING_CONSENT_ENABLED=true`, `MARKETING_CONSENT_TEXT_VERSION`, and `MARKETING_CONSENT_APPROVED_TEXT` are all configured. The exact approved notice and version are stored with each choice. Defaults are false; transaction mail is separate. No external consent provider is connected.
+- `src/api/account-deletion-request` and the account settings UI: password re-authentication, durable review request, session revocation, and status/reason audit through the existing operation-event log. The Strapi figurine-admin plugin adds a staff review list and decision endpoint, gated by the separate `CUSTOMER_DATA_ADMIN_ROLE_NAMES` allowlist; an empty or mismatched role list denies access. An approval is blocked when linked orders are pending/uncertain, operational state is missing, or fulfillment is active. Approval records a decision only; it does not delete anything or imply deletion is complete. Orders and payment rows are not cascaded or modified.
+- `src/api/guest-order-claim`, `customer-action` relation and `/hesap/siparis-sahiplen`: claim tokens are hashed, short-lived (30 minutes), single use, tied to the claiming account, rate limited, attempt limited and consumed in a transaction that only links a still-unowned order. Mail goes to the order's existing buyer email, never an address supplied by the browser. Requests without a usable email are currently not surfaced in a staff review queue; SMS/WhatsApp verification is not configured. Do not treat wa.me as ownership proof.
+- Retention cleanup in `src/commerce/figurines.ts` no longer assumes a 30-day abandoned-draft period. The Strapi staff panel provides a dry-run preview and per-record explicit execution for temporary uploads and unsubmitted drafts; execution requires the configured data-admin role, `CUSTOMER_RETENTION_EXECUTION_ENABLED=true`, and for drafts an explicit `FIGURINE_UNSUBMITTED_DRAFT_RETENTION_DAYS` policy. Failed storage/DB operations remain in `retention-job` and can be retried by re-executing the still-eligible preview record. Expired signed-upload quarantine uses its existing five-minute upload expiry, with `FIGURINE_TEMP_UPLOAD_RETENTION_HOURS` as an optional longer threshold. Original/t​​ransformed user photo assets attached to completed requests and account data are not purged by this workflow.
+- Payment-disabled quote acceptance now clearly says that approval is not payment or production, hides order/address/payment actions, and provides existing WhatsApp/email contact options. Payment feature flags remain false.
+- `docker-compose.stage5-postgres.yml` provides a disposable localhost-only PostgreSQL 16 database using tmpfs. It is a repeatable setup, not evidence of a PostgreSQL test run.
+
+## Data and safety boundaries
+
+New Strapi collection types are additive: `customer-consent`, `account-deletion-request`, `guest-order-claim`, and `retention-job`. Existing orders, snapshots, payment attempts, and user relations are unchanged. Setup adds a unique index to Strapi 5's `orders_user_lnk(order_id)` relation table so simultaneous legacy-order claims cannot attach the same order to two users. Before production rollout, inspect and resolve any duplicate order-link rows in a backup copy; index creation should not be used as an implicit data repair. Strapi performs schema synchronization on the local/test boot used here; no production migration was executed. Production rollout must back up the database and object store, deploy additive backend types first, verify table/index creation and staff role mappings, and then deploy the frontend. Rollback is code rollback with new rows preserved; do not drop new tables or objects as a rollback shortcut.
+
+Deletion is intentionally not a general-purpose automatic account erasure workflow. No retention/legal period has been chosen. There is no code path here that permanently deletes profiles, addresses, customer identities, orders, payment evidence, or completed-request photos. Backup copies are governed separately by the hosting backup lifecycle; removing an active DB row/object does not prove that backups have expired or been purged. A reviewed data inventory, retention schedule, backup expiry and restore-expiry policy, deletion job preview, explicit staff execution authorization, asset original/derivative grouping, retry dashboard, and completion evidence are still required before data erasure can be advertised.
+
+The preview reports completed-request photos and account-data as skipped because no approved periods or all-copy deletion behavior exist. The current controlled deletion worker only supports transient upload quarantine and unsubmitted drafts. It does not provide one consolidated approval gate over profile/address, order snapshots, payment evidence, completed-request photo originals/derivatives, and backups. Do not enable draft deletion until its retention period is approved and verified with synthetic data.
+
+## Environment variable names
+
+- `MARKETING_CONSENT_ENABLED`, `MARKETING_CONSENT_TEXT_VERSION`, `MARKETING_CONSENT_APPROVED_TEXT`: marketing preference UI and writes stay unavailable unless enabled with the exact approved notice and its version.
+- `CUSTOMER_DATA_ADMIN_ROLE_NAMES`: explicit Strapi admin role names/codes permitted to review deletion requests, inspect retention previews, execute eligible retention jobs, and view unclaimable-order review rows. Empty means deny.
+- `CUSTOMER_RETENTION_EXECUTION_ENABLED`: enables the explicit staff execute action; default false.
+- `FIGURINE_TEMP_UPLOAD_RETENTION_HOURS`: optional longer age threshold for incomplete private upload quarantine records. Signed upload expiry remains the minimum expiry.
+- `FIGURINE_UNSUBMITTED_DRAFT_RETENTION_DAYS`: approved policy input for preview/execution of abandoned drafts. Empty/zero means no candidate draft is eligible.
+- `CUSTOMER_TEST_POSTGRES_URL`: local test-only dedicated PostgreSQL connection used by `--postgres`; the harness rejects non-local hosts and database names outside `customer_test_*`.
+- Card-payment gates `FIGURINE_PAYMENTS_ENABLED` and `POSNET_BANK_VERIFIED` remain false. No Stage 5 variable enables them.
+
+## Local PostgreSQL setup
+
+The current environment has no `docker`, `podman`, `psql`, `pg_ctl`, `initdb`, or `postgres` command and no PostgreSQL Windows service. The repository's test code has a PostgreSQL URL guard but tests previously run here used isolated SQLite. To reproduce on a machine with Docker Compose:
+
+```powershell
+docker compose -f docker-compose.stage5-postgres.yml up -d --wait
+$env:CUSTOMER_TEST_POSTGRES_URL = 'postgres://customer_test:customer_test_only@127.0.0.1:55432/customer_test_stage5'
+npm run test:accounts -- --postgres
+```
+
+The PostgreSQL test runner accepts only localhost and a database named `customer_test_*`. The current integration suite exercises parallel requests in one Strapi process; the requested separate-process PostgreSQL race matrix (refresh, cart merge, quote accept/publish, conversion, payment callback, outbox lease, and guest claim) still must be added and run before claiming multi-process PostgreSQL safety. SQLite/process-local results are not PostgreSQL evidence.
+
+## One release-readiness matrix
+
+| Feature | Code status | Local test | Real-service test | Release blocker | Required action |
+|---|---|---|---|---|---|
+| Membership and customer account | Existing stage 1 login/session/profile/address/order ownership; this stage adds consent UI and deletion request/review | Existing SQLite account suite; Stage 5 preference/deletion cases are added to the suite, see final report for run result | SMTP, production proxy/IP rate limiting, and target hosting not tested | Actual SMTP, target deployment cookie/origin settings, verified staff roles; deletion policy unknown | Send verification/reset mail through production SMTP in staging; map only named staff roles; approve a data-retention/deletion matrix before any erasure |
+| Persistent cart and standard orders | Stage 2 implementation unchanged | Existing SQLite integration cases only | PostgreSQL and real catalog/checkout environment not tested here | PostgreSQL multi-process race suite and real stock source (stock is not modeled) | Run the test matrix below against target PostgreSQL; decide stock/reservation behavior separately |
+| Figurine request and private photos | Stage 3 private upload/request implementation; this stage only config-gates draft cleanup | Existing isolated local-storage/mock tests | S3-compatible private bucket, SMTP and production decoder/image sizes not tested | Real private bucket permissions/CORS/lifecycle and approved privacy/retention text | Provision a private non-public bucket, run signed-upload/deny-public/cleanup tests, approve privacy notice and retention rules |
+| Quote approval and operations | Stage 4 workflows/admin plugin; closed-payment customer UI clarified; deletion review added to same admin plugin | Existing SQLite workflow/admin permission/outbox tests; staff SSO/role grant not verified | No production Strapi admin role/identity provider tested | Staff roles must map correctly; administrative review endpoints/UI and outbox must be exercised in staging | Grant least-privilege roles and verify each action with allowed and denied staff accounts |
+| Card payment | Existing Posnet path remains gated off (`FIGURINE_PAYMENTS_ENABLED=false`, `POSNET_BANK_VERIFIED=false`); no payment actions shown when disabled | Mock Posnet tests only; they do not enable live payment | No bank request or merchant callback tested | Static IP and bank setup, plus authentic Posnet test/callback/reconciliation verification | Keep flags off; obtain static IP and bank's official environment/keys/documentation; complete end-to-end bank certification and replay/timeout tests before enabling |
+| Real money refund | Not implemented; customer return application is only a request and staff decision | Tests assert decisions do not change paid state | No refund endpoint/service tested | No confirmed Posnet refund integration or approved refund operation | Obtain official bank refund API/authorization and reconciliation procedure; implement and test in bank sandbox. Do not report an accepted application as refunded |
+| Data / communication preferences | Preference storage/UI is present but closed until approved exact notice/version is configured. Deletion requests/review exist; automatic account/data erasure is deliberately absent | Disabled/default-off path and synthetic deletion lifecycle are covered by the account suite | No marketing platform/consent-system or external SMS/WhatsApp provider tested | Approved copy/version and integration target; reviewed retention/deletion and backup lifecycle; ownerless claim staff queue | Approve and configure notice/version before enabling; identify any downstream system to sync; specify retention by data class and backup expiry; add staff manual-claim queue for records without email |
+
+## Concrete items still required before publication
+
+1. Supply the approved marketing notice and version, and decide whether preferences need synchronization to a named mailing/CRM provider. Until then leave all `MARKETING_CONSENT_*` settings empty/false.
+2. Set policy owners to define separate periods for incomplete upload/quarantine, abandoned drafts, completed request originals/derivatives, account/profile/address, operational order/payment records, outbox/audit records, and backup copies. Then add a preview/approval/execution job and staff dashboard before any irreversible deletion.
+3. Define the manual review owner and UI for guest orders that have no usable email channel; no SMS or WhatsApp ownership verification exists.
+4. Start the disposable PostgreSQL service and add/run the separate-process race suite. Do not treat the current SQLite suite as passing it.
+5. Verify S3-compatible private object access, SMTP delivery/retries, Strapi staff roles, cookie/domain/origin/proxy settings and rate-limit client IP extraction on the target staging host.
+6. For card payment only, complete static IP and bank/Posnet configuration and real test-environment callback/reconciliation. Keep both existing feature flags off until then. No alternate payment method was added because none was approved.
+7. Real refunds remain unavailable. Obtain bank refund specifications and business authorization before implementing any refund capability.

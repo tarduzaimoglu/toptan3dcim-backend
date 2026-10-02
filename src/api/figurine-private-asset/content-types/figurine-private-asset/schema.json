@@ -1,0 +1,19 @@
+{
+  "kind": "collectionType", "collectionName": "figurine_private_assets",
+  "info": { "singularName": "figurine-private-asset", "pluralName": "figurine-private-assets", "displayName": "Figurine private assets" },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": { "content-manager": { "visible": false }, "content-type-builder": { "visible": false } },
+  "attributes": {
+    "assetKey": { "type": "string", "required": true, "unique": true, "private": true },
+    "objectKey": { "type": "string", "required": true, "private": true },
+    "mime": { "type": "string", "required": true },
+    "size": { "type": "integer", "required": true },
+    "width": { "type": "integer", "required": true },
+    "height": { "type": "integer", "required": true },
+    "originalSize": { "type": "integer", "private": true },
+    "sha256": { "type": "string", "private": true },
+    "draft": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-draft.figurine-draft", "private": true },
+    "request": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-request.figurine-request", "private": true },
+    "owner": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user", "private": true }
+  }
+}

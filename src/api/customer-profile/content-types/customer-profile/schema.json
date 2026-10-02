@@ -1,0 +1,39 @@
+{
+  "kind": "collectionType",
+  "collectionName": "customer_profiles",
+  "indexes": [{ "name": "customer_profile_userKey_unique", "columns": ["user_key"], "type": "unique" }],
+  "info": {
+    "singularName": "customer-profile",
+    "pluralName": "customer-profiles",
+    "displayName": "customer-profile"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "userKey": { "type": "string", "unique": true, "private": true },
+    "fullName": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "lockUntil": {
+      "type": "datetime"
+    },
+    "owner": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "private": true
+    }
+  }
+}

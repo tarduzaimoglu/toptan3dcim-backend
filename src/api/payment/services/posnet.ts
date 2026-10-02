@@ -204,6 +204,7 @@ async function postXml(config: PosnetConfig, xml: string, correlationId: string)
       'X-CORRELATION-ID': correlationId,
     },
     body,
+    signal: AbortSignal.timeout(60000),
   });
 
   const text = await res.text();

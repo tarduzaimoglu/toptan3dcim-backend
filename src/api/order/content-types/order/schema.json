@@ -10,7 +10,20 @@
     "draftAndPublish": false
   },
   "pluginOptions": {},
+  "indexes": [{"name":"orders_checkout_key_unique","columns":["checkout_key"],"type":"unique"},{"name":"orders_figurine_offer_key_unique","columns":["figurine_offer_key"],"type":"unique"}],
+  "pluginOptions": { "content-manager": { "visible": false }, "content-type-builder": { "visible": false } },
   "attributes": {
+    "checkoutKey": {"type":"string","private":true},
+    "checkoutHash": {"type":"string","private":true},
+    "guestHash": {"type":"string","private":true},
+    "billingAddress": {"type":"json"},
+    "cartSnapshot": {"type":"json","private":true},
+    "cartSettled": {"type":"boolean","default":false,"private":true},
+    "paymentState": {"type":"enumeration","enum":["pending","paid","failed","unknown"]},
+    "fulfillmentState": {"type":"enumeration","enum":["preparing","production","ready","shipped","delivered","cancelled"]},
+    "shippingCarrier": {"type":"string"},
+    "trackingNumber": {"type":"string"},
+    "trackingUrl": {"type":"string"},
     "orderNumber": {
       "type": "string",
       "required": true,
@@ -98,6 +111,13 @@
     "clientIp": {
       "type": "string"
     },
+    "figurineOfferKey": { "type": "string", "private": true },
+    "figurineSnapshot": { "type": "json", "private": true },
+    "fulfillmentCustomerNote": { "type": "text" },
+    "fulfillmentInternalNote": { "type": "text", "private": true },
+    "figurineRequest": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-request.figurine-request", "private": true },
+    "figurineOffer": { "type": "relation", "relation": "oneToOne", "target": "api::figurine-offer.figurine-offer", "private": true },
+    "figurineReturnRequests": { "type": "relation", "relation": "oneToMany", "target": "api::figurine-return-request.figurine-return-request", "mappedBy": "order", "private": true },
     "user": {
       "type": "relation",
       "relation": "manyToOne",

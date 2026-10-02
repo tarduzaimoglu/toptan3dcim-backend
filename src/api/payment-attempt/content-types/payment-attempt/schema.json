@@ -1,0 +1,77 @@
+{
+  "kind": "collectionType",
+  "collectionName": "payment_attempts",
+  "info": {
+    "singularName": "payment-attempt",
+    "pluralName": "payment-attempts",
+    "displayName": "payment-attempt"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "indexes": [
+    {
+      "name": "payment_attempt_unique",
+      "columns": [
+        "xid"
+      ],
+      "type": "unique"
+    }
+  ],
+  "attributes": {
+    "xid": {
+      "type": "string",
+      "required": true,
+      "private": true
+    },
+    "order": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::order.order",
+      "private": true
+    },
+    "amount": {
+      "type": "integer",
+      "required": true
+    },
+    "currency": {
+      "type": "string",
+      "default": "TL"
+    },
+    "state": {
+      "type": "enumeration",
+      "enum": [
+        "creating",
+        "ready",
+        "resolving",
+        "charging",
+        "unknown",
+        "paid",
+        "failed"
+      ],
+      "default": "creating"
+    },
+    "encryptedForm": {
+      "type": "text",
+      "private": true
+    },
+    "failureCode": {
+      "type": "string",
+      "private": true
+    },
+    "chargedAt": {
+      "type": "datetime"
+    },
+    "settledAt": {
+      "type": "datetime"
+    }
+  }
+}

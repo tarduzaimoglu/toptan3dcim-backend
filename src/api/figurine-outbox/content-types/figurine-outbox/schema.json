@@ -1,0 +1,17 @@
+{
+  "kind": "collectionType", "collectionName": "figurine_outbox",
+  "info": { "singularName": "figurine-outbox", "pluralName": "figurine-outboxes", "displayName": "Figurine notification outbox" },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": { "content-manager": { "visible": false }, "content-type-builder": { "visible": false } },
+  "attributes": {
+    "eventKey": { "type": "string", "required": true, "unique": true, "private": true },
+    "recipient": { "type": "email", "required": true, "private": true },
+    "encryptedPayload": { "type": "text", "required": true, "private": true },
+    "status": { "type": "enumeration", "enum": ["pending", "processing", "sent", "failed"], "default": "pending" },
+    "attempts": { "type": "integer", "default": 0 },
+    "nextAttemptAt": { "type": "datetime" },
+    "lockUntil": { "type": "datetime", "private": true },
+    "lastErrorCode": { "type": "string", "private": true },
+    "request": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-request.figurine-request", "private": true }
+  }
+}

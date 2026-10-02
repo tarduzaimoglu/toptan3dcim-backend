@@ -1,0 +1,57 @@
+{
+  "kind": "collectionType",
+  "collectionName": "customer_addresss",
+  "info": {
+    "singularName": "customer-address",
+    "pluralName": "customer-addresss",
+    "displayName": "customer-address"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "label": {
+      "type": "string"
+    },
+    "fullName": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "district": {
+      "type": "string"
+    },
+    "addressLine": {
+      "type": "text"
+    },
+    "postalCode": {
+      "type": "string"
+    },
+    "defaultShipping": {
+      "type": "boolean",
+      "default": false
+    },
+    "defaultBilling": {
+      "type": "boolean",
+      "default": false
+    },
+    "owner": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "private": true
+    }
+  }
+}

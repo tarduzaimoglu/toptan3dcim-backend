@@ -1,0 +1,13 @@
+{
+  "kind": "collectionType", "collectionName": "figurine_drafts",
+  "info": { "singularName": "figurine-draft", "pluralName": "figurine-drafts", "displayName": "Figurine drafts" },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": { "content-manager": { "visible": false }, "content-type-builder": { "visible": false } },
+  "attributes": {
+    "ownerKey": { "type": "string", "required": true, "unique": true, "private": true },
+    "payload": { "type": "json", "private": true },
+    "lockUntil": { "type": "datetime", "private": true },
+    "owner": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user", "private": true },
+    "package": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-package.figurine-package", "private": true }
+  }
+}

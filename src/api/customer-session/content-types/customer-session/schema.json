@@ -1,0 +1,54 @@
+{
+  "kind": "collectionType",
+  "collectionName": "customer_sessions",
+  "indexes": [{ "name": "customer_session_tokenHash_unique", "columns": ["token_hash"], "type": "unique" }],
+  "info": {
+    "singularName": "customer-session",
+    "pluralName": "customer-sessions",
+    "displayName": "customer-session"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "tokenHash": {
+      "type": "string",
+      "unique": true,
+      "private": true
+    },
+    "encryptedTokens": {
+      "type": "text",
+      "private": true
+    },
+    "deviceId": {
+      "type": "string",
+      "private": true
+    },
+    "expiresAt": {
+      "type": "datetime"
+    },
+    "idleExpiresAt": {
+      "type": "datetime"
+    },
+    "accessExpiresAt": {
+      "type": "datetime"
+    },
+    "lockUntil": {
+      "type": "datetime"
+    },
+    "owner": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "private": true
+    }
+  }
+}
