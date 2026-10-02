@@ -34,6 +34,10 @@ WORKDIR /opt/app
 COPY --from=build /opt/app/package.json /opt/app/package-lock.json ./
 COPY --from=build /opt/app/node_modules ./node_modules
 COPY --from=build /opt/app/dist/ ./
+# Local Strapi plugins are resolved from their source package path at runtime.
+# The TypeScript build intentionally excludes plugin source, so include the
+# package files that Strapi's loader needs (the admin bundle is already built).
+COPY --from=build /opt/app/src/plugins/figurine-admin ./src/plugins/figurine-admin
 COPY --from=build /opt/app/public ./public
 COPY --from=build /opt/app/favicon.png ./favicon.png
 COPY --from=build /opt/app/scripts/migrate-custom-product-types.js ./scripts/migrate-custom-product-types.js

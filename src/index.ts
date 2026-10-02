@@ -17,6 +17,10 @@ export default {
    * run jobs, or perform some special logic.
    */
   async bootstrap({ strapi }: any) {
+    // Public package records are safe to display while authenticated requests
+    // and private-photo submission remain feature-gated. Seed only missing
+    // keys so staff-managed edits are preserved across restarts.
+    await strapi.service('api::customer.customer').setupFigurinePackages();
     if (process.env.CUSTOMER_ACCOUNTS_ENABLED === 'true') {
       if (!process.env.CUSTOMER_BFF_SECRET || Buffer.byteLength(process.env.CUSTOMER_BFF_SECRET) < 32) throw new Error('CUSTOMER_BFF_SECRET must be at least 32 bytes');
       const { encryptionKey } = require('./customer/security');
@@ -24,7 +28,6 @@ export default {
       const origin = new URL(process.env.CUSTOMER_PUBLIC_ORIGIN || '');
       if (process.env.NODE_ENV === 'production' && origin.protocol !== 'https:') throw new Error('Customer origin must use HTTPS in production');
       if (process.env.CUSTOMER_SCHEMA_SETUP === 'true') await strapi.service('api::customer.customer').setup();
-      if (process.env.FIGURINE_REQUESTS_ENABLED === 'true' && process.env.CUSTOMER_SCHEMA_SETUP === 'true') await strapi.service('api::customer.customer').setupFigurinePackages();
       strapi.db.lifecycles.subscribe({
         models: ['plugin::users-permissions.user'],
         beforeCreate(event: any) {

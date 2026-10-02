@@ -15,7 +15,7 @@ export default () => async (ctx: any, next: any) => {
   // The bank callback remains publicly reachable and verifies the bank MAC before changing Order.
   if (path === '/api/payment/initiate') { ctx.status = 404; ctx.body = { message: 'Bulunamadı.' }; return; }
   if (/^\/api\/customer(\/|$)/.test(path)) {
-    if (process.env.CUSTOMER_ACCOUNTS_ENABLED !== 'true') { ctx.status = 503; ctx.body = { message: 'Hesap hizmeti etkin değil.' }; return; }
+    if (process.env.CUSTOMER_ACCOUNTS_ENABLED !== 'true') { ctx.status = 503; ctx.body = { code: 'ACCOUNT_FEATURE_DISABLED', message: 'Hesap hizmeti etkin değil.' }; return; }
     const key = process.env.CUSTOMER_BFF_SECRET || '';
     if (!key || !equal(ctx.get('x-customer-bff-key'), key)) { ctx.status = 404; ctx.body = { message: 'Bulunamadı.' }; return; }
   }
