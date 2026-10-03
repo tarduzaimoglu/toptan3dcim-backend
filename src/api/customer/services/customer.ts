@@ -37,7 +37,10 @@ export default ({ strapi }: any) => {
     const bucketKey = digest(`${operation}:${identity}:${window}`);
     const t = table('rate'), k = column('rate', 'bucketKey'), h = column('rate', 'hits'), e = column('rate', 'expiresAt');
     const rows = await db()(t).insert({ [k]: bucketKey, [h]: 1, [e]: new Date((window + 2) * windowMs) })
-      .onConflict(k).merge({ [h]: db().raw('?? + 1', [h]) }).returning(h);
+      // PostgreSQL exposes both the target and EXCLUDED rows in ON CONFLICT;
+      // qualify the existing counter so `hits` is not ambiguous. SQLite also
+      // accepts the target-table qualification.
+      .onConflict(k).merge({ [h]: db().raw('??.?? + 1', [t, h]) }).returning(h);
     if (Number(rows[0][h]) > max) throw new CustomerError(429, 'Çok fazla deneme yapıldı. Lütfen daha sonra tekrar deneyin.');
   }
 
