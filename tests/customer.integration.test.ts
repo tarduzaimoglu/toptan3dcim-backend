@@ -455,9 +455,18 @@ async function main() {
     if (process.argv.includes('--e2e')) {
       const orderCustomer = await users().findOne({ where: { id: aliceUser.id } });
       await new Promise<void>((resolve, reject) => {
-        const child = spawn(process.execPath, ['tests/account.e2e.cjs'], { cwd: path.resolve(process.cwd(), '../toptan3dcim-frontend'), windowsHide: true,
-          env: { ...process.env, CUSTOMER_STRAPI_INTERNAL_URL: origin, CUSTOMER_TEST_ORDER_EMAIL: orderCustomer.email,
-            CUSTOMER_TEST_ORDER_PASSWORD: 'New local password 456!', CUSTOMER_TEST_ORDER_NUMBER: `TEST-${runId}` }, stdio: 'inherit' });
+        const frontend = path.resolve(process.cwd(), '../toptan3dcim-frontend');
+        const childEnv = { ...process.env, CUSTOMER_STRAPI_INTERNAL_URL: origin, CUSTOMER_TEST_ORDER_EMAIL: orderCustomer.email,
+          CUSTOMER_TEST_ORDER_PASSWORD: 'New local password 456!', CUSTOMER_TEST_ORDER_NUMBER: `TEST-${runId}` };
+        const useContainer = process.env.CUSTOMER_E2E_BROWSER_CONTAINER === 'true';
+        const command = useContainer ? 'docker' : process.execPath;
+        const args = useContainer ? [
+          'run', '--rm', '--network', 'host', '--ipc', 'host', '--user', `${process.getuid?.() || 1000}:${process.getgid?.() || 1000}`,
+          '-e', 'HOME=/tmp', ...Object.keys(childEnv).filter(key => /^(CUSTOMER_|FIGURINE_|NEXT_|BACKEND_|NODE_ENV$)/.test(key)).flatMap(key => ['-e', key]),
+          '-v', `${frontend}:/work/frontend`, '-v', `${process.cwd()}:/work/toptan3dcim-backend:ro`, '-w', '/work/frontend',
+          'mcr.microsoft.com/playwright:v1.63.0-noble', 'node', 'tests/account.e2e.cjs',
+        ] : ['tests/account.e2e.cjs'];
+        const child = spawn(command, args, { cwd: frontend, windowsHide: true, env: childEnv, stdio: 'inherit' });
         child.on('error', reject); child.on('exit', code => code === 0 ? resolve() : reject(new Error('Local account E2E failed')));
       });
     }

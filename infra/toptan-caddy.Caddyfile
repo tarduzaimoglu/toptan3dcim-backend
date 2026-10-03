@@ -1,0 +1,37 @@
+:8080 {
+	@payment path /api/payment /api/payment/*
+
+	handle @payment {
+		respond "Not Found" 404
+	}
+
+	# Only this private bucket path reaches the object store. The RustFS console,
+	# health, admin, root and every other bucket/API path stay unreachable here.
+	@figurine_private path /toptan3dcim-private-figurines /toptan3dcim-private-figurines/*
+
+	handle @figurine_private {
+		reverse_proxy figurine-object-storage:9000
+	}
+
+	@api path /api /api/*
+
+	handle @api {
+		reverse_proxy toptan3dcim-strapi:1337
+	}
+
+	@uploads path /uploads /uploads/*
+
+	handle @uploads {
+		reverse_proxy toptan3dcim-strapi:1337
+	}
+
+	@admin path /admin /admin/*
+
+	handle @admin {
+		respond "Not Found" 404
+	}
+
+	handle {
+		respond "Not Found" 404
+	}
+}

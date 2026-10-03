@@ -6,12 +6,13 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 const privateRoot = path.resolve(process.cwd(), '.tmp/private-figurines');
 const driver = () => process.env.FIGURINE_STORAGE_DRIVER || 's3';
-function client() {
+function client(publicRequest = false) {
   const { FIGURINE_PRIVATE_S3_ENDPOINT: endpoint, FIGURINE_PRIVATE_S3_BUCKET: bucket,
+    FIGURINE_PRIVATE_S3_INTERNAL_ENDPOINT: internalEndpoint,
     FIGURINE_PRIVATE_S3_REGION: region, FIGURINE_PRIVATE_S3_ACCESS_KEY_ID: accessKeyId,
     FIGURINE_PRIVATE_S3_SECRET_ACCESS_KEY: secretAccessKey } = process.env;
   if (!endpoint || !bucket || !region || !accessKeyId || !secretAccessKey) throw new Error('Private figurine object storage is not configured');
-  return { bucket, client: new S3Client({ endpoint, region, forcePathStyle: true, credentials: { accessKeyId, secretAccessKey } }) };
+  return { bucket, client: new S3Client({ endpoint: publicRequest ? endpoint : internalEndpoint || endpoint, region, forcePathStyle: true, credentials: { accessKeyId, secretAccessKey } }) };
 }
 const localPath = (key: string) => {
   if (!/^[a-z0-9/_.-]{1,180}$/.test(key) || key.split('/').some(part => part === '.' || part === '..')) throw new Error('Invalid private object key');
@@ -41,7 +42,9 @@ export default {
       await fs.mkdir(path.dirname(localPath(key)), { recursive: true, mode: 0o700 });
       return { url: `/api/figurine/private-upload`, method: 'PUT', headers: { 'Content-Type': 'application/octet-stream', 'x-local-upload-token': token }, expiresIn: 300, local: true };
     }
-    const { bucket, client: s3 } = client();
+    // The hostname is part of the SigV4 signature. Sign with the public HTTPS
+    // endpoint customers can reach, while server-side reads can stay private.
+    const { bucket, client: s3 } = client(true);
     const url = await getSignedUrl(s3, new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: 'application/octet-stream', ContentLength: size, Metadata: { 'upload-token': token } }), { expiresIn: 300 });
     return { url, method: 'PUT', headers: { 'Content-Type': 'application/octet-stream', 'x-amz-meta-upload-token': token }, expiresIn: 300, local: false };
   },
