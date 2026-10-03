@@ -45,7 +45,19 @@ export default {
     // The hostname is part of the SigV4 signature. Sign with the public HTTPS
     // endpoint customers can reach, while server-side reads can stay private.
     const { bucket, client: s3 } = client(true);
-    const url = await getSignedUrl(s3, new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: 'application/octet-stream', ContentLength: size, Metadata: { 'upload-token': token } }), { expiresIn: 300 });
+    const origin = process.env.CUSTOMER_PUBLIC_ORIGIN?.trim();
+    if (!origin?.startsWith('https://')) throw new Error('Customer public origin is not configured');
+    const command = new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: 'application/octet-stream', ContentLength: size, Metadata: { 'upload-token': token } });
+    command.middlewareStack.add(next => async args => {
+      (args.request as any).headers.origin = origin;
+      return next(args);
+    }, { step: 'build', name: 'bindFigurineUploadOrigin' });
+    const url = await getSignedUrl(s3, command, {
+      expiresIn: 300,
+      // Metadata is security-sensitive: keep it as a required signed header
+      // instead of allowing the presigner to hoist it into the query string.
+      unhoistableHeaders: new Set(['x-amz-meta-upload-token']),
+    });
     return { url, method: 'PUT', headers: { 'Content-Type': 'application/octet-stream', 'x-amz-meta-upload-token': token }, expiresIn: 300, local: false };
   },
   async verifyLocalPut(keyEncoded: string, token: string, signature: string, bytes: Buffer) {
