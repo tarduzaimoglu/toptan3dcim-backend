@@ -174,7 +174,7 @@ export default ({ strapi }: any) => {
     try {
       return await strapi.db.transaction(async ({ trx }: any) => {
         const request = await q('request').create({ data: { requestNumber: reqNo, requestKey, status: 'received', customerStatusText: 'Talep alındı', details,
-          contactPreference, owner, package: p.id, assets: assets.map((a: any) => a.id) }, transacting: trx });
+          contactPreference, privacyNoticeVersion: settings.privacyVersion, privacyNoticeAcceptedAt: iso(), owner, package: p.id, assets: assets.map((a: any) => a.id) }, transacting: trx });
         for (const asset of assets) await q('private-asset').update({ where: { id: asset.id, owner: { id: owner } }, data: { request: request.id }, transacting: trx });
         const outbox = await q('outbox').create({ data: { eventKey: `figurine-request:${request.id}:received`, recipient: user.email, encryptedPayload: seal(payloadMail), status: 'pending', attempts: 0,
           nextAttemptAt: iso(), request: request.id }, transacting: trx });
@@ -200,13 +200,13 @@ export default ({ strapi }: any) => {
     fields(input, ['id']);
     const req = await q('request').findOne({ where: { documentId: idText(input.id), owner: { id: owner } }, populate: ['assets'] });
     if (!req) throw error(404, 'Figür talebi bulunamadı.');
-    return { request: safeRequest(req), photos: (req.assets || []).map((asset: any) => ({ id: asset.assetKey })) };
+    return { request: safeRequest(req), photos: (req.assets || []).filter((asset: any) => !asset.deletedAt).map((asset: any) => ({ id: asset.assetKey })) };
   }
   async function adminList() {
     const requests = await q('request').findMany({ orderBy: { createdAt: 'desc' }, limit: 100, populate: ['owner', 'package', 'assets'] });
     return requests.map((r: any) => ({ id: r.documentId, requestNumber: r.requestNumber, status: r.customerStatusText, createdAt: r.createdAt,
       customerEmail: r.owner?.email, customerName: r.details?.fullName, package: r.details?.package, details: r.details,
-      photos: (r.assets || []).map((asset: any) => ({ id: asset.assetKey, width: asset.width, height: asset.height })) }));
+      photos: (r.assets || []).filter((asset: any) => !asset.deletedAt).map((asset: any) => ({ id: asset.assetKey, width: asset.width, height: asset.height })) }));
   }
   async function adminOutbox(admin: any) {
     await checkAdmin(admin);
@@ -232,7 +232,7 @@ export default ({ strapi }: any) => {
   }
   async function adminPhoto(requestDocumentId: string, assetKey: string) {
     const req = await q('request').findOne({ where: { documentId: idText(requestDocumentId) }, populate: ['assets'] });
-    const asset = (req?.assets || []).find((a: any) => a.assetKey === assetKey);
+    const asset = (req?.assets || []).find((a: any) => a.assetKey === assetKey && !a.deletedAt);
     if (!asset) throw error(404, 'Fotoğraf bulunamadı.');
     return storage.read(asset.objectKey);
   }
@@ -255,6 +255,42 @@ export default ({ strapi }: any) => {
     if (bytes.length !== session.declaredSize || bytes.length > limits.fileBytes) throw error(413, 'Dosya boyutu sınırı aşıldı.');
     await storage.verifyLocalPut(Buffer.from(session.objectKey).toString('base64url'), token, crypto.createHmac('sha256', process.env.CUSTOMER_BFF_SECRET || '').update(`put:${Buffer.from(session.objectKey).toString('base64url')}:${token}`).digest('base64url'), bytes);
     return { uploaded: true };
+  }
+  const photoPolicyVersion = 'figurine-photo-retention-v1-2026-10-03';
+  async function retentionRecord(jobKey: string, category: string, policyVersion: string, status: string, data: any = {}) {
+    const jobs = strapi.db.query('api::retention-job.retention-job');
+    const row = await jobs.findOne({ where: { jobKey } });
+    const values = { category, policyVersion, status, targetKey: data.targetKey || jobKey,
+      attempts: (row?.attempts || 0) + (status === 'failed' ? 1 : 0), ...data };
+    if (row) return jobs.update({ where: { id: row.id }, data: values });
+    return jobs.create({ data: { jobKey, ...values } });
+  }
+  async function deleteRequestPhotos(request: any, executedBy: string) {
+    const jobKey = `retention:completed-request-photo:${request.documentId}`;
+    const due = Date.parse(request.photoRetentionDueAt || '');
+    if (!Number.isFinite(due) || due > Date.now() || !request.photoRetentionStartedAt || !request.photoRetentionBasis) throw error(409, 'Talebin doğrulanmış saklama başlangıcı yok veya süre henüz dolmadı.');
+    if (request.photosDeletedAt) {
+      await retentionRecord(jobKey, 'completed-request-photo', photoPolicyVersion, 'completed', { targetKey: request.documentId, executedBy, result: { deleted: true, repeated: true } });
+      return { status: 'completed', repeated: true };
+    }
+    await retentionRecord(jobKey, 'completed-request-photo', photoPolicyVersion, 'processing', { targetKey: request.documentId, executedBy, executedAt: iso() });
+    try {
+      const assets = await q('private-asset').findMany({ where: { request: { id: request.id } }, limit: 50 });
+      for (const asset of assets) {
+        // A tombstoned asset is still deleted again. This makes a restore of an
+        // older object archive converge back to the deletion ledger.
+        await storage.delete(asset.objectKey);
+        if (!asset.deletedAt) await q('private-asset').update({ where: { id: asset.id }, data: { deletedAt: iso(), deletionPolicyVersion: photoPolicyVersion, deletionJobKey: jobKey } });
+      }
+      const deletedAt = iso();
+      await q('request').update({ where: { id: request.id }, data: { photosDeletedAt: deletedAt } });
+      await retentionRecord(jobKey, 'completed-request-photo', photoPolicyVersion, 'completed', { targetKey: request.documentId, executedBy, executedAt: deletedAt, lastErrorCode: null, result: { deleted: true, assetCount: assets.length } });
+      return { status: 'completed', repeated: false };
+    } catch {
+      await retentionRecord(jobKey, 'completed-request-photo', photoPolicyVersion, 'failed', { targetKey: request.documentId, executedBy, lastErrorCode: 'STORAGE_OR_DB_DELETE_FAILED' });
+      strapi.log.error('[retention] request photo deletion failed');
+      throw error(503, 'Fotoğraf silme tamamlanamadı; güvenli biçimde yeniden denenebilir.');
+    }
   }
   return {
     async run(operation: string, input: any, auth: any) {
@@ -286,25 +322,18 @@ export default ({ strapi }: any) => {
     async adminPhoto(admin: any, requestId: string, assetKey: string) {
       await checkAdmin(admin, 'photo');
       const request = await q('request').findOne({ where: { documentId: idText(requestId) }, populate: ['assets'] });
-      const asset = (request?.assets || []).find((a: any) => a.assetKey === assetKey);
+      const asset = (request?.assets || []).find((a: any) => a.assetKey === assetKey && !a.deletedAt);
       if (!asset) throw error(404, 'Fotoğraf bulunamadı.');
       return storage.read(asset.objectKey);
     },
     async customerPhoto(owner: number, requestId: string, assetKey: string) {
       const request = await q('request').findOne({ where: { documentId: idText(requestId), owner: { id: owner } }, populate: ['assets'] });
-      const asset = (request?.assets || []).find((item: any) => item.assetKey === idText(assetKey));
+      const asset = (request?.assets || []).find((item: any) => item.assetKey === idText(assetKey) && !item.deletedAt);
       if (!asset) throw error(404, 'Fotoğraf bulunamadı.');
       return storage.read(asset.objectKey);
     },
     async cleanup() {
       const configuredHours = Number(process.env.FIGURINE_TEMP_UPLOAD_RETENTION_HOURS || 0);
-      const configuredDraftDays = Number(process.env.FIGURINE_UNSUBMITTED_DRAFT_RETENTION_DAYS || 0);
-      async function retentionRecord(jobKey: string, category: string, policyVersion: string, status: string, lastErrorCode?: string) {
-        const rows = await strapi.db.query('api::retention-job.retention-job').findMany({ where: { jobKey }, limit: 1 });
-        const data: any = { category, policyVersion, status, targetKey: jobKey, attempts: (rows[0]?.attempts || 0) + (status === 'failed' ? 1 : 0), ...(lastErrorCode ? { lastErrorCode } : {}) };
-        if (rows[0]) return strapi.db.query('api::retention-job.retention-job').update({ where: { id: rows[0].id }, data });
-        return strapi.db.query('api::retention-job.retention-job').create({ data: { jobKey, ...data } });
-      }
       const expired = await q('upload-session').findMany({ where: { $or: [
         ...(Number.isSafeInteger(configuredHours) && configuredHours > 0 ? [{ createdAt: { $lt: iso(Date.now() - configuredHours * 3600000) }, completedAt: null }] : []),
         { expiresAt: { $lt: iso() }, completedAt: null },
@@ -320,18 +349,35 @@ export default ({ strapi }: any) => {
           else await q('upload-session').delete({ where: { id: session.id } });
           await retentionRecord(jobKey, 'temporary-upload', uploadPolicy, 'completed');
         }
-        catch { await retentionRecord(jobKey, 'temporary-upload', uploadPolicy, 'failed', 'STORAGE_OR_DB_DELETE_FAILED'); strapi.log.error('[figurine] expired upload cleanup failed'); }
+        catch { await retentionRecord(jobKey, 'temporary-upload', uploadPolicy, 'failed', { lastErrorCode: 'STORAGE_OR_DB_DELETE_FAILED' }); strapi.log.error('[figurine] expired upload cleanup failed'); }
       }
+      const dueRequests = await q('request').findMany({ where: { photosDeletedAt: null, photoRetentionDueAt: { $lte: iso() } }, limit: 20 });
+      for (const request of dueRequests) try { await deleteRequestPhotos(request, 'system:retention-worker'); } catch { /* generic error already recorded */ }
+      // Reconcile tombstones after any object-store restore. No request/order or
+      // accounting record is removed by this pass.
+      const tombstones = await q('private-asset').findMany({ where: { deletedAt: { $notNull: true } }, limit: 100 });
+      for (const asset of tombstones) try { await storage.delete(asset.objectKey); } catch { strapi.log.error('[retention] tombstone reconciliation failed'); }
     },
     async retentionPreview(admin: any) {
       await dataAdministrator(strapi, Number(admin?.id));
       const hours = Number(process.env.FIGURINE_TEMP_UPLOAD_RETENTION_HOURS || 0), days = Number(process.env.FIGURINE_UNSUBMITTED_DRAFT_RETENTION_DAYS || 0);
       const uploads = await q('upload-session').findMany({ where: { $or: [{ expiresAt: { $lt: iso() }, completedAt: null }, { completedAt: { $notNull: true }, quarantineRemovedAt: null }, ...(Number.isSafeInteger(hours) && hours > 0 ? [{ createdAt: { $lt: iso(Date.now()-hours*3600000) }, completedAt: null }] : [])] }, limit: 100 });
       const drafts = Number.isSafeInteger(days) && days > 0 ? await q('draft').findMany({ where: { updatedAt: { $lt: iso(Date.now()-days*86400000) } }, limit: 100 }) : [];
+      const dueRequests = await q('request').findMany({ where: { photosDeletedAt: null, photoRetentionDueAt: { $lte: iso() } }, limit: 100 });
+      const closedWithoutDate = await q('request').findMany({ where: { status: 'closed', closedAt: null, photosDeletedAt: null }, limit: 100 });
+      const terminalWithoutDate = await strapi.db.query('api::order.order').findMany({ where: { figurineRequest: { id: { $notNull: true } }, $or: [
+        { fulfillmentState: 'delivered', deliveredAt: null }, { fulfillmentState: 'cancelled', cancelledAt: null },
+      ] }, populate: ['figurineRequest'], limit: 100 });
       return { dryRun: true, executionEnabled: process.env.CUSTOMER_RETENTION_EXECUTION_ENABLED === 'true', categories: [
         { category: 'temporary-upload', configured: true, count: uploads.length, candidates: uploads.map((x: any) => ({ id: x.documentId, createdAt: x.createdAt })) },
         { category: 'unsubmitted-draft', configured: days > 0, count: drafts.length, candidates: drafts.map((x: any) => ({ id: x.documentId, updatedAt: x.updatedAt })) },
-        { category: 'completed-request-photo', configured: false, count: 0, skipped: 'OnaylÄ± saklama politikasÄ± ve orijinal/tÃ¼rev gruplama henÃ¼z yok.' },
+        { category: 'completed-request-photo', configured: true, policyVersion: photoPolicyVersion, count: dueRequests.length,
+          candidates: dueRequests.map((x: any) => ({ id: x.documentId, basis: x.photoRetentionBasis, retentionStartedAt: x.photoRetentionStartedAt, dueAt: x.photoRetentionDueAt })) },
+        { category: 'photo-retention-review', configured: true, count: closedWithoutDate.length + terminalWithoutDate.length,
+          candidates: [
+            ...closedWithoutDate.map((x: any) => ({ id: x.documentId, reason: 'CLOSED_AT_UNKNOWN' })),
+            ...terminalWithoutDate.map((x: any) => ({ id: x.figurineRequest?.documentId, reason: x.fulfillmentState === 'delivered' ? 'DELIVERED_AT_UNKNOWN' : 'CANCELLED_AT_UNKNOWN' })),
+          ].filter((x: any) => x.id) },
         { category: 'account-data', configured: false, count: 0, skipped: 'Hukuki saklama ve yedek yaÅŸam dÃ¶ngÃ¼sÃ¼ belirlenmedi.' },
       ] };
     },
@@ -340,7 +386,12 @@ export default ({ strapi }: any) => {
       if (process.env.CUSTOMER_RETENTION_EXECUTION_ENABLED !== 'true' || input.confirmation !== 'execute') throw error(403, 'Saklama iÅŸlemi kapalÄ± veya onay eksik.');
       const category = input.category, targetId = idText(input.targetId);
       const configDays = Number(process.env.FIGURINE_UNSUBMITTED_DRAFT_RETENTION_DAYS || 0);
-      if (!['temporary-upload','unsubmitted-draft'].includes(category)) throw error(400, 'Bu veri sÄ±nÄ±fÄ± iÃ§in silme iÅŸlemi tanÄ±mlÄ± deÄŸil.');
+      if (!['temporary-upload','unsubmitted-draft','completed-request-photo'].includes(category)) throw error(400, 'Bu veri sınıfı için silme işlemi tanımlı değil.');
+      if (category === 'completed-request-photo') {
+        const request = await q('request').findOne({ where: { documentId: targetId } });
+        if (!request) throw error(404, 'Talep bulunamadı.');
+        return deleteRequestPhotos(request, `admin:${actor.id}`);
+      }
       const jobKey = `retention:${category}:${targetId}`, jobs = strapi.db.query('api::retention-job.retention-job');
       let job = await jobs.findOne({ where: { jobKey } });
       if (job?.status === 'completed') return { status: 'completed', repeated: true };

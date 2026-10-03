@@ -12,6 +12,9 @@
     "height": { "type": "integer", "required": true },
     "originalSize": { "type": "integer", "private": true },
     "sha256": { "type": "string", "private": true },
+    "deletedAt": { "type": "datetime", "private": true },
+    "deletionPolicyVersion": { "type": "string", "private": true },
+    "deletionJobKey": { "type": "string", "private": true },
     "draft": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-draft.figurine-draft", "private": true },
     "request": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-request.figurine-request", "private": true },
     "owner": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user", "private": true }

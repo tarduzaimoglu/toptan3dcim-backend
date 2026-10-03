@@ -87,7 +87,7 @@ export default (strapi: any) => {
     fields(input, ['id']);
     const request = await customerRequest(owner, input.id);
     const versions = (await offers().findMany({ where: { request: { id: request.id }, state: { $ne: 'draft' } }, orderBy: { version: 'desc' } })).map(publicOffer);
-    const photos = (await db.query('api::figurine-private-asset.figurine-private-asset').findMany({ where: { request: { id: request.id }, owner: { id: owner } }, select: ['assetKey'] })).map((a: any) => ({ id: a.assetKey }));
+    const photos = (await db.query('api::figurine-private-asset.figurine-private-asset').findMany({ where: { request: { id: request.id }, owner: { id: owner }, deletedAt: null }, select: ['assetKey'] })).map((a: any) => ({ id: a.assetKey }));
     const order = await orders().findOne({ where: { figurineRequest: { id: request.id }, user: { id: owner } } });
     const returnRows = order ? await returns().findMany({ where: { order: { id: order.id }, owner: { id: owner } }, orderBy: { createdAt: 'desc' } }) : [];
     return {
@@ -250,7 +250,7 @@ export default (strapi: any) => {
     return {
       id: request.documentId, requestNumber: request.requestNumber, status: request.status, customerStatusText: request.customerStatusText || 'Talep alındı',
       createdAt: request.createdAt, customerEmail: request.owner?.email, customerName: request.details?.fullName, package: request.details?.package,
-      details: request.details, internalNotes: request.internalNotes || '', photos: (request.assets || []).map((a: any) => ({ id: a.assetKey, width: a.width, height: a.height })),
+      details: request.details, internalNotes: request.internalNotes || '', photos: (request.assets || []).filter((a: any) => !a.deletedAt).map((a: any) => ({ id: a.assetKey, width: a.width, height: a.height })),
       offers: quotes.map((q: any) => ({ ...publicOffer(q), internalNote: q.internalNote || '' })),
       responses: responseRows.map((r: any) => ({ kind: r.kind, comment: r.comment || '', quoteVersion: r.quoteVersion, createdAt: r.createdAt })),
       order: order ? { id: order.documentId, orderNumber: order.orderNumber, status: order.status, paymentState: order.paymentState || order.status,
@@ -322,7 +322,18 @@ export default (strapi: any) => {
     if (!allowed.includes(input.status)) throw fail(400, 'Talep durumu geçersiz.');
     return db.transaction(async ({ trx }: any) => {
       const locked = await lockRequest(request, trx);
-      const data = { status: input.status, customerStatusText: text(input.customerStatusText, 300, true), internalNotes: text(input.internalNotes || '', 5000) };
+      const data: any = { status: input.status, customerStatusText: text(input.customerStatusText, 300, true), internalNotes: text(input.internalNotes || '', 5000) };
+      if (input.status === 'closed' && request.status !== 'closed') {
+        const linkedOrder = await orders().findOne({ where: { figurineRequest: { id: request.id } }, transacting: trx });
+        if (linkedOrder && !['delivered', 'cancelled'].includes(linkedOrder.fulfillmentState)) throw fail(409, 'Aktif siparişe bağlı talep doğrudan kapatılamaz. Sipariş operasyon durumunu kullanın.');
+        if (!linkedOrder) {
+          const closedAt = iso();
+          data.closedAt = closedAt;
+          data.photoRetentionBasis = 'closed';
+          data.photoRetentionStartedAt = closedAt;
+          data.photoRetentionDueAt = iso(Date.parse(closedAt) + 30 * 86400000);
+        }
+      }
       await requests().update({ where: { id: request.id }, data, transacting: trx });
       await audit(trx, `admin:${actor.id}`, request.id, null, request.status, input.status, { customerStatusText: data.customerStatusText });
       const activeOffer = await offers().findOne({ where: { request: { id: request.id }, state: 'offered' }, orderBy: { version: 'desc' }, transacting: trx });

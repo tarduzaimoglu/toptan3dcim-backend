@@ -14,7 +14,7 @@ async function main() {
   Object.assign(process.env, { NODE_ENV: 'test', DATABASE_CLIENT: 'sqlite', DATABASE_URL: '', DATABASE_FILENAME: `.tmp/customer-test-${runId}.db`,
     HOST: '127.0.0.1', PORT: '0', APP_KEYS: crypto.randomBytes(32).toString('hex'), JWT_SECRET: crypto.randomBytes(32).toString('hex'),
     ADMIN_JWT_SECRET: crypto.randomBytes(32).toString('hex'), API_TOKEN_SALT: crypto.randomBytes(32).toString('hex'), TRANSFER_TOKEN_SALT: crypto.randomBytes(32).toString('hex'), ENCRYPTION_KEY: crypto.randomBytes(32).toString('hex'),
-    CUSTOMER_ACCOUNTS_ENABLED: 'true', CUSTOMER_SCHEMA_SETUP: 'true', FIGURINE_REQUESTS_ENABLED: 'true', FIGURINE_STORAGE_DRIVER: 'local', FIGURINE_MAIL_MODE: 'file', FIGURINE_ADMIN_ROLE_NAMES: 'Super Admin', FIGURINE_REVIEW_ROLE_NAMES: 'Super Admin', FIGURINE_QUOTE_ROLE_NAMES: 'Super Admin', FIGURINE_OPERATIONS_ROLE_NAMES: 'Super Admin', FIGURINE_PHOTO_ROLE_NAMES: 'Super Admin', CUSTOMER_BFF_SECRET: crypto.randomBytes(32).toString('hex'),
+    CUSTOMER_ACCOUNTS_ENABLED: 'true', CUSTOMER_SCHEMA_SETUP: 'true', FIGURINE_REQUESTS_ENABLED: 'true', FIGURINE_STORAGE_DRIVER: 'local', FIGURINE_MAIL_MODE: 'file', FIGURINE_ADMIN_ROLE_NAMES: 'Super Admin', FIGURINE_REVIEW_ROLE_NAMES: 'Super Admin', FIGURINE_QUOTE_ROLE_NAMES: 'Super Admin', FIGURINE_OPERATIONS_ROLE_NAMES: 'Super Admin', FIGURINE_PHOTO_ROLE_NAMES: 'Super Admin', CUSTOMER_DATA_ADMIN_ROLE_NAMES: 'Super Admin', CUSTOMER_RETENTION_EXECUTION_ENABLED: 'true', CUSTOMER_BFF_SECRET: crypto.randomBytes(32).toString('hex'),
     CUSTOMER_TOKEN_ENCRYPTION_KEY: crypto.randomBytes(32).toString('base64'), CUSTOMER_PUBLIC_ORIGIN: 'http://localhost:3210', CUSTOMER_MAIL_MODE: 'file', STRAPI_TELEMETRY_DISABLED: 'true' });
   if (process.argv.includes('--postgres')) {
     const connection = new URL(process.env.CUSTOMER_TEST_POSTGRES_URL || '');
@@ -425,6 +425,55 @@ async function main() {
       process.env.FIGURINE_PHOTO_ROLE_NAMES = 'No such role';
       await assert.rejects(() => workflow.figurineAdminPhoto(admin, figurineRequestId, 'not-a-photo'));
       process.env.FIGURINE_PHOTO_ROLE_NAMES = 'Super Admin';
+    });
+    await test('Photo retention uses explicit terminal dates, retries partial failures, preserves records and reconciles restored objects', async () => {
+      const workflow = app.service('api::customer.customer');
+      const admin = await app.db.query('admin::user').findOne({ where: { email: `workflow-${runId}@example.test` } });
+      const orders = app.db.query('api::order.order'), requests = app.db.query('api::figurine-request.figurine-request');
+      let order = await orders.findOne({ where: { figurineRequest: { documentId: figurineRequestId } } });
+      const op = (fulfillmentState: string, shippingCarrier = '', trackingNumber = '') => workflow.figurineAdminOperation(admin, order.documentId,
+        { fulfillmentState, customerNote: `Synthetic ${fulfillmentState}`, internalNote: '', shippingCarrier, trackingNumber, trackingUrl: '' });
+      await op('production'); await op('ready'); await op('shipped', 'Synthetic Carrier', 'SYNTHETIC-TRACKING'); await op('delivered', 'Synthetic Carrier', 'SYNTHETIC-TRACKING');
+      order = await orders.findOne({ where: { id: order.id } });
+      assert.ok(order.deliveredAt); assert.equal(order.cancelledAt, null);
+      let retained = await requests.findOne({ where: { documentId: figurineRequestId }, populate: ['assets'] });
+      assert.equal(retained.photoRetentionBasis, 'delivered');
+      assert.equal(Date.parse(retained.photoRetentionDueAt) - Date.parse(retained.photoRetentionStartedAt), 90 * 86400000);
+      assert.equal(retained.privacyNoticeVersion, `test-${runId}`); assert.ok(retained.privacyNoticeAcceptedAt);
+
+      const closable = await requests.create({ data: { requestNumber: `CLOSE-${runId}`, requestKey: crypto.randomBytes(24).toString('base64url'), status: 'reviewing', customerStatusText: 'Synthetic open', details: {}, contactPreference: 'email', owner: aliceUser.id, package: 1 } });
+      await workflow.figurineAdminRequestUpdate(admin, closable.documentId, { status: 'closed', customerStatusText: 'Synthetic closed', internalNotes: '' });
+      const closed = await requests.findOne({ where: { id: closable.id } });
+      assert.equal(closed.photoRetentionBasis, 'closed'); assert.ok(closed.closedAt);
+      assert.equal(Date.parse(closed.photoRetentionDueAt) - Date.parse(closed.photoRetentionStartedAt), 30 * 86400000);
+
+      const historical = await requests.create({ data: { requestNumber: `HIST-${runId}`, requestKey: crypto.randomBytes(24).toString('base64url'), status: 'closed', customerStatusText: 'Historical synthetic', details: {}, contactPreference: 'email', owner: aliceUser.id, package: retained.package?.id || 1 } });
+      const review = await workflow.figurineRetentionPreview(admin);
+      assert.ok(review.categories.find((c: any) => c.category === 'photo-retention-review').candidates.some((c: any) => c.id === historical.documentId && c.reason === 'CLOSED_AT_UNKNOWN'));
+
+      const past = new Date(Date.now() - 91 * 86400000).toISOString();
+      await requests.update({ where: { id: retained.id }, data: { photoRetentionStartedAt: past, photoRetentionDueAt: new Date(Date.parse(past) + 90 * 86400000).toISOString() } });
+      retained = await requests.findOne({ where: { id: retained.id }, populate: ['assets'] });
+      const asset = retained.assets[0]; assert.ok(asset);
+      const storageModule = require(path.resolve('dist/src/commerce/figurine-storage.js')).default;
+      const originalDelete = storageModule.delete; let failedOnce = false;
+      storageModule.delete = async (...args: any[]) => { if (!failedOnce) { failedOnce = true; throw new Error('synthetic storage failure'); } return originalDelete.apply(storageModule, args); };
+      await assert.rejects(() => workflow.figurineRetentionExecute(admin, { category: 'completed-request-photo', targetId: figurineRequestId, confirmation: 'execute' }));
+      storageModule.delete = originalDelete;
+      const failedJob = await app.db.query('api::retention-job.retention-job').findOne({ where: { jobKey: `retention:completed-request-photo:${figurineRequestId}` } });
+      assert.equal(failedJob.status, 'failed'); assert.equal(failedJob.lastErrorCode, 'STORAGE_OR_DB_DELETE_FAILED');
+      assert.equal((await workflow.figurineRetentionExecute(admin, { category: 'completed-request-photo', targetId: figurineRequestId, confirmation: 'execute' })).status, 'completed');
+      assert.equal((await workflow.figurineRetentionExecute(admin, { category: 'completed-request-photo', targetId: figurineRequestId, confirmation: 'execute' })).repeated, true);
+      const tombstone = await app.db.query('api::figurine-private-asset.figurine-private-asset').findOne({ where: { id: asset.id } });
+      assert.ok(tombstone.deletedAt); assert.equal(tombstone.deletionPolicyVersion, 'figurine-photo-retention-v1-2026-10-03');
+      assert.ok(await orders.findOne({ where: { id: order.id } }));
+      assert.ok(await app.db.query('api::figurine-offer.figurine-offer').findOne({ where: { request: { id: retained.id } } }));
+      assert.equal((await request('figurine-request', { id: figurineRequestId }, aToken)).body.photos.length, 0);
+      await assert.rejects(() => workflow.figurineAdminPhoto(admin, figurineRequestId, asset.assetKey));
+      await fs.mkdir(path.dirname(path.resolve('.tmp/private-figurines', tombstone.objectKey)), { recursive: true });
+      await fs.writeFile(path.resolve('.tmp/private-figurines', tombstone.objectKey), 'synthetic restored object');
+      await workflow.figurineCleanup();
+      await assert.rejects(() => fs.stat(path.resolve('.tmp/private-figurines', tombstone.objectKey)));
     });
     await test('Stage 5 marketing consent defaults closed; guest-order claim verifies the order-record email and account deletion revokes sessions without deleting records', async () => {
       const prefs = await request('communication-preferences', {}, aToken); assert.equal(prefs.status, 200); assert.equal(prefs.body.enabled, false); assert.deepEqual(prefs.body.preferences, { email: false, whatsapp: false });

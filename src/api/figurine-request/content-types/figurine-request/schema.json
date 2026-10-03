@@ -15,6 +15,13 @@
     "package": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-package.figurine-package", "required": true },
     "assets": { "type": "relation", "relation": "manyToMany", "target": "api::figurine-private-asset.figurine-private-asset", "private": true },
     "internalNotes": { "type": "text", "private": true },
+    "closedAt": { "type": "datetime" },
+    "photoRetentionBasis": { "type": "enumeration", "enum": ["delivered", "closed", "cancelled"] },
+    "photoRetentionStartedAt": { "type": "datetime" },
+    "photoRetentionDueAt": { "type": "datetime" },
+    "photosDeletedAt": { "type": "datetime" },
+    "privacyNoticeVersion": { "type": "string" },
+    "privacyNoticeAcceptedAt": { "type": "datetime" },
     "offers": { "type": "relation", "relation": "oneToMany", "target": "api::figurine-offer.figurine-offer", "mappedBy": "request", "private": true },
     "responses": { "type": "relation", "relation": "oneToMany", "target": "api::figurine-response.figurine-response", "mappedBy": "request", "private": true },
     "returnRequests": { "type": "relation", "relation": "oneToMany", "target": "api::figurine-return-request.figurine-return-request", "mappedBy": "request", "private": true }

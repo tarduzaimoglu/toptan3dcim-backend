@@ -21,6 +21,8 @@
     "cartSettled": {"type":"boolean","default":false,"private":true},
     "paymentState": {"type":"enumeration","enum":["pending","paid","failed","unknown"]},
     "fulfillmentState": {"type":"enumeration","enum":["preparing","production","ready","shipped","delivered","cancelled"]},
+    "deliveredAt": {"type":"datetime"},
+    "cancelledAt": {"type":"datetime"},
     "shippingCarrier": {"type":"string"},
     "trackingNumber": {"type":"string"},
     "trackingUrl": {"type":"string"},
