@@ -14,7 +14,7 @@ For an S3-compatible private provider, set `FIGURINE_STORAGE_DRIVER=s3` and the 
 
 Defaults are 10 MiB per image, 10 images, 50 MiB total, and 40 million pixels. They can be adjusted with `FIGURINE_MAX_FILE_BYTES`, `FIGURINE_MAX_FILES`, `FIGURINE_MAX_TOTAL_BYTES`, and `FIGURINE_MAX_PIXELS`, within the backend's hard caps. HEIC/HEIF is not accepted; use JPEG, PNG, or WebP. Sharp being compiled with a decoder is not treated as HEIC support without a real representative sample and production runtime validation.
 
-The Strapi cron worker retries durable outbox messages once per minute and removes expired uploads/orphaned drafts every 15 minutes. Multiple Strapi instances use a database lease on each outbox row; monitor `[figurine] notification delivery failed`, the outbox `lastErrorCode`, attempt count, and failed rows. Before production, configure authenticated SMTP (`CUSTOMER_SMTP_*`, `CUSTOMER_MAIL_FROM`) and verify delivery. File mailbox mode is for local testing only.
+The Strapi cron worker retries durable outbox messages once per minute and removes expired uploads/orphaned drafts every 15 minutes. The approved production photo lifecycle, explicit terminal-date rules, retryable tombstones, restore ordering, and published notice are documented in `docs/figurine-photo-retention.md`. Multiple Strapi instances use a database lease on each outbox row; monitor `[figurine] notification delivery failed`, the outbox `lastErrorCode`, attempt count, and failed rows. Before production, configure authenticated SMTP (`CUSTOMER_SMTP_*`, `CUSTOMER_MAIL_FROM`) and verify delivery. File mailbox mode is for local testing only.
 
 ## Additive schema and rollout
 
