@@ -5,7 +5,7 @@
   "strapi": { "kind": "plugin", "name": "figurine-admin", "displayName": "Figurine requests", "description": "Private customer figurine request review" },
   "exports": {
     "./strapi-admin": { "source": "./admin/src/index.ts", "default": "./admin/src/index.ts" },
-    "./strapi-server": { "source": "./server/src/index.ts", "require": "./server/src/index.ts", "default": "./server/src/index.ts" },
+    "./strapi-server": { "source": "./server/src/index.ts", "require": "../../../dist/src/plugins/figurine-admin/server/src/index.js", "default": "../../../dist/src/plugins/figurine-admin/server/src/index.js" },
     "./package.json": "./package.json"
   }
 }

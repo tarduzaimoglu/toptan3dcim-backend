@@ -38,7 +38,7 @@
     "src/admin/",
     // Do not include test files
     "**/*.test.*",
-    // Do not include plugins in the server compilation
-    "src/plugins/**"
+    // Admin plugin UI is bundled separately; compile local plugin server code.
+    "src/plugins/**/admin/**"
   ]
 }
