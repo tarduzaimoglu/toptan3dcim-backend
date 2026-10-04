@@ -546,7 +546,9 @@ export default function Requests() {
       style={
         {
           padding: "28px clamp(16px,3vw,36px)",
+          width: "100%",
           maxWidth: 1180,
+          boxSizing: "border-box",
           margin: "auto",
           color: colors.neutral800,
           fontSize: 15,
