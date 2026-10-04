@@ -2,5 +2,10 @@
   "name": "figurine-admin",
   "version": "0.1.0",
   "private": true,
-  "strapi": { "kind": "plugin", "name": "figurine-admin", "displayName": "Figurine requests", "description": "Private customer figurine request review" }
+  "strapi": { "kind": "plugin", "name": "figurine-admin", "displayName": "Figurine requests", "description": "Private customer figurine request review" },
+  "exports": {
+    "./strapi-admin": { "source": "./admin/src/index.ts" },
+    "./strapi-server": { "source": "./server/src/index.ts" },
+    "./package.json": "./package.json"
+  }
 }
