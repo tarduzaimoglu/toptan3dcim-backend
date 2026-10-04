@@ -232,8 +232,8 @@ export default (strapi: any) => {
     return { returnRequests: rows.map((r: any) => ({ id: r.documentId, orderId: r.order?.documentId, orderNumber: r.order?.orderNumber, reason: r.reason, state: r.state, customerNote: r.customerNote || '', decisionAt: r.decisionAt || null, createdAt: r.createdAt })) };
   }
 
-  async function checkAdmin(admin: any, capability: 'review' | 'quote' | 'operations' | 'photo' | 'refund') {
-    const roleEnv: Record<string, string> = { review: 'FIGURINE_REVIEW_ROLE_NAMES', quote: 'FIGURINE_QUOTE_ROLE_NAMES', operations: 'FIGURINE_OPERATIONS_ROLE_NAMES', photo: 'FIGURINE_PHOTO_ROLE_NAMES', refund: 'FIGURINE_REVIEW_ROLE_NAMES' };
+  async function checkAdmin(admin: any, capability: 'review' | 'quote' | 'operations' | 'order-view' | 'photo' | 'refund') {
+    const roleEnv: Record<string, string> = { review: 'FIGURINE_REVIEW_ROLE_NAMES', quote: 'FIGURINE_QUOTE_ROLE_NAMES', operations: 'FIGURINE_OPERATIONS_ROLE_NAMES', 'order-view': 'ORDER_VIEW_ROLE_NAMES', photo: 'FIGURINE_PHOTO_ROLE_NAMES', refund: 'FIGURINE_REVIEW_ROLE_NAMES' };
     const current = await db.query('admin::user').findOne({ where: { id: admin?.id, isActive: true }, populate: ['roles'] });
     const configured = process.env[roleEnv[capability]] ?? process.env.FIGURINE_ADMIN_ROLE_NAMES ?? '';
     if (!current?.roles?.some((r: any) => configured.split(',').map((v: string) => v.trim()).includes(r.name))) throw fail(403, 'Bu işlem için personel yetkiniz yok.');
@@ -261,7 +261,7 @@ export default (strapi: any) => {
     };
   }
   async function adminOrderDetail(admin: any, orderId: string) {
-    await checkAdmin(admin, 'operations');
+    await checkAdmin(admin, 'order-view');
     const order = await orders().findOne({ where: { documentId: id(orderId) } });
     if (!order) throw fail(404, 'Sipariş bulunamadı.');
     return {
@@ -450,6 +450,6 @@ export default (strapi: any) => {
     async adminOperation(admin: any, orderId: string, input: any) { return adminOperation(admin, orderId, input); },
     async adminReturnList(admin: any) { return adminReturnList(admin); },
     async adminReturnDecision(admin: any, requestId: string, input: any) { return adminReturnDecision(admin, requestId, input); },
-    async checkAdmin(admin: any, capability: 'review' | 'quote' | 'operations' | 'photo' | 'refund') { return checkAdmin(admin, capability); },
+    async checkAdmin(admin: any, capability: 'review' | 'quote' | 'operations' | 'order-view' | 'photo' | 'refund') { return checkAdmin(admin, capability); },
   };
 };
