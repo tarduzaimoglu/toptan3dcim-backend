@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useFetchClient } from '@strapi/strapi/admin';
+import { useAuth, useFetchClient } from '@strapi/strapi/admin';
 
 type Work = { id: string; requestNumber: string; status: string; state: string; createdAt: string; customerEmail: string; customerName: string; package: { title: string }; details: any };
 type Quote = { id: string; version: number; state: string; scope: any; amountMinor: number; taxMinor: number; shippingMinor: number; totalMinor: number; customerNote: string; internalNote: string; taxShippingDisclosure: string; validUntil: string | null };
@@ -11,6 +11,7 @@ const blankScope = (item?: Work) => ({ characters: item?.details?.characters || 
 
 export default function Requests() {
   const { get, post, put } = useFetchClient();
+  const token = useAuth('FigurineRequests', state => state.token);
   const [requests, setRequests] = useState<Work[]>([]), [orders, setOrders] = useState<any[]>([]), [returns, setReturns] = useState<any[]>([]);
   const [deletions, setDeletions] = useState<any[]>([]);
   const [retention, setRetention] = useState<any>(null);
@@ -56,8 +57,9 @@ export default function Requests() {
       setRequestState(data.state || 'reviewing'); setCustomerStatus(data.status || 'İnceleniyor'); setRequestNote(data.internalNotes || '');
       if (data.order) setOperation({ fulfillmentState: data.order.fulfillmentState === 'unknown' ? 'preparing' : data.order.fulfillmentState, shippingCarrier: data.order.shippingCarrier, trackingNumber: data.order.trackingNumber, trackingUrl: data.order.trackingUrl, customerNote: data.order.customerNote, internalNote: data.order.internalNote });
       const blobs = await Promise.all((data.photos || []).map(async (photo: any) => {
-        const response = await get(`/figurine-admin/requests/${encodeURIComponent(item.id)}/photos/${encodeURIComponent(photo.id)}`, { responseType: 'arraybuffer' });
-        return URL.createObjectURL(new Blob([response.data], { type: 'image/webp' }));
+        const response = await fetch(`/figurine-admin/requests/${encodeURIComponent(item.id)}/photos/${encodeURIComponent(photo.id)}`, { headers: { Authorization: `Bearer ${token}`, Accept: 'image/webp' } });
+        if (!response.ok) throw new Error('Private photo unavailable');
+        return URL.createObjectURL(await response.blob());
       })); setImages(blobs);
     } catch { setError('Talep detayı açılamadı. Fotoğraf ve işlem yetkilerinizi kontrol edin.'); }
   }
