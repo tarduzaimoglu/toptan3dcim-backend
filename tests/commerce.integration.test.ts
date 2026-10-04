@@ -80,7 +80,7 @@ export async function commerceTests({ app, request, test, aliceUser, aToken, bTo
       const businessJobs = await app.db.query('api::figurine-outbox.figurine-outbox').findMany({ where: { order: { id: memberOrder.id }, audience: 'business' } });
       assert.equal(businessJobs.length, 1, 'checkout retries must not duplicate the business notification');
       const businessMail = open(businessJobs[0].encryptedPayload);
-      assert.match(businessMail.subject, /^Yeni sipariş/); assert.match(businessMail.text, /Ödeme durumu: pending/); assert.match(businessMail.text, /üretimin başladığı anlamına gelmez/);
+      assert.match(businessMail.subject, /^Yeni sipariş/); assert.match(businessMail.text, /Ödeme durumu: Ödeme bekleniyor/); assert.match(businessMail.text, /genel toplama ayrıca eklenmemiştir/); assert.match(businessMail.text, /üretimin başladığı anlamına gelmez/);
       assert.equal((await request('checkout', { ...member.data, userId: 99 }, aToken)).status, 400);
       const other = await checkout(bToken, { shippingAddressId: addressId }); assert.equal(other.result.status, 404);
       const guest = await checkout(); assert.equal(guest.result.status, 200);

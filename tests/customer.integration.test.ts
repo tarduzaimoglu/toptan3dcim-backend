@@ -266,7 +266,7 @@ async function main() {
       assert.equal(requestOutboxes.length, 2); assert.deepEqual(requestOutboxes.map((job: any) => job.audience).sort(), ['business', 'customer']);
       const business = requestOutboxes.find((job: any) => job.audience === 'business');
       assert.equal(business.recipient, 'business@example.test');
-      const businessPayload = open(business.encryptedPayload); assert.match(businessPayload.subject, /^Yeni figür talebi/); assert.ok(businessPayload.html.includes('&lt;img')); assert.ok(!businessPayload.html.includes('<img src=x onerror')); assert.ok(!businessPayload.html.includes('/figurine-photo/')); assert.ok(!businessPayload.html.includes('fileKey'));
+      const businessPayload = open(business.encryptedPayload); assert.match(businessPayload.subject, /^Yeni figür talebi/); assert.match(businessPayload.text, /İletişim tercihi: E-posta/); assert.match(businessPayload.text, /Renk: Renkli/); assert.ok(businessPayload.html.includes('&lt;img')); assert.ok(!businessPayload.html.includes('<img src=x onerror')); assert.ok(!businessPayload.html.includes('/figurine-photo/')); assert.ok(!businessPayload.html.includes('fileKey'));
       const outbox = requestOutboxes.find((job: any) => job.audience === 'customer'); assert.ok(outbox); assert.notEqual(outbox.encryptedPayload, '');
       process.env.FIGURINE_MAIL_MODE = 'smtp'; process.env.CUSTOMER_SMTP_HOST = '127.0.0.1'; process.env.CUSTOMER_SMTP_PORT = '1'; process.env.CUSTOMER_SMTP_USER = ''; process.env.CUSTOMER_SMTP_PASS = '';
       await service.figurineOutbox();
@@ -364,6 +364,8 @@ async function main() {
       assert.ok(order); assert.equal(order.user.id, aliceUser.id); assert.equal(order.figurineRequest.id, reqRow.id); assert.equal(order.figurineOffer.id, accepted.id);
       assert.equal(order.grandTotal, accepted.totalMinor); assert.equal(order.vatTotal, accepted.taxMinor); assert.equal(order.shippingCost, accepted.shippingMinor);
       assert.equal(order.grandTotal, order.subtotal + order.vatTotal + order.shippingCost, 'quoted total is used directly; catalog tax/shipping is not added');
+      const orderBusinessJob = await app.db.query('api::figurine-outbox.figurine-outbox').findOne({ where: { order: { id: order.id }, audience: 'business' } });
+      assert.match(open(orderBusinessJob.encryptedPayload).text, /ürün bedeline ayrıca eklenmiştir/);
       assert.deepEqual(order.shippingAddress, order.billingAddress);
       const [again1, again2] = await Promise.all([request('figurine-convert-order', input, aToken), request('figurine-convert-order', input, aToken)]);
       assert.equal(again1.status, 200); assert.equal(again2.status, 200);
