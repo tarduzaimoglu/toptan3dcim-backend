@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth, useFetchClient } from '@strapi/strapi/admin';
+import { useTheme } from 'styled-components';
 
 type Work = { id: string; requestNumber: string; status: string; state: string; createdAt: string; customerEmail: string; customerName: string; package: { title: string }; details: any };
 type Quote = { id: string; version: number; state: string; scope: any; amountMinor: number; taxMinor: number; shippingMinor: number; totalMinor: number; customerNote: string; internalNote: string; taxShippingDisclosure: string; validUntil: string | null };
-const panel: React.CSSProperties = { marginTop: 20, padding: 20, color: 'var(--colors-neutral800)', background: 'var(--colors-neutral0)', border: '1px solid var(--colors-neutral200)', borderRadius: 12 };
-const input: React.CSSProperties = { display: 'block', width: '100%', padding: 10, color: 'var(--colors-neutral800)', background: 'var(--colors-neutral0)', border: '1px solid var(--colors-neutral300)', borderRadius: 8, marginTop: 4, marginBottom: 12 };
+const basePanel: React.CSSProperties = { marginTop: 20, padding: 20, borderRadius: 12 };
+const baseInput: React.CSSProperties = { display: 'block', width: '100%', padding: 10, borderRadius: 8, marginTop: 4, marginBottom: 12 };
 const titleStyle: React.CSSProperties = { fontSize: 20, fontWeight: 700, marginBottom: 12 };
 const label = (text: string) => <span style={{ fontSize: 13, fontWeight: 600 }}>{text}</span>;
 const requestStateLabel: Record<string, string> = { received: 'Alındı', reviewing: 'İnceleniyor', 'waiting-customer': 'Müşteri yanıtı bekleniyor', closed: 'Kapatıldı' };
@@ -14,6 +15,10 @@ const blankScope = (item?: Work) => ({ characters: item?.details?.characters || 
 export default function Requests() {
   const { get, post, put } = useFetchClient();
   const token = useAuth('FigurineRequests', state => state.token);
+  const theme = useTheme() as any;
+  const colors = theme.colors;
+  const panel: React.CSSProperties = { ...basePanel, color: colors.neutral800, background: colors.neutral0, border: `1px solid ${colors.neutral200}` };
+  const input: React.CSSProperties = { ...baseInput, color: colors.neutral800, background: colors.neutral0, border: `1px solid ${colors.neutral300}` };
   const [requests, setRequests] = useState<Work[]>([]), [orders, setOrders] = useState<any[]>([]), [returns, setReturns] = useState<any[]>([]);
   const [deletions, setDeletions] = useState<any[]>([]);
   const [retention, setRetention] = useState<any>(null);
@@ -120,7 +125,7 @@ export default function Requests() {
   async function executeRetention(category: string, id: string) { if (!window.confirm(`Ön izlemede listelenen ${category} kaydı silinsin mi? Dosya silme geri alınamaz.`)) return; try { await post('/figurine-admin/retention/execute',{category,targetId:id,confirmation:'execute'}); await refresh(); } catch(e:any) { setError(e?.response?.data?.message||'Saklama işlemi tamamlanamadı.'); } }
   const actionOrders = useMemo(() => orders, [orders]);
 
-  return <main style={{ padding: 24, maxWidth: 1320, margin: 'auto', color: 'var(--colors-neutral800)' }}>
+  return <main style={{ padding: 24, maxWidth: 1320, margin: 'auto', color: colors.neutral800, '--colors-neutral0': colors.neutral0, '--colors-neutral100': colors.neutral100, '--colors-neutral200': colors.neutral200, '--colors-neutral300': colors.neutral300, '--colors-neutral700': colors.neutral700, '--colors-neutral800': colors.neutral800, '--colors-primary100': colors.primary100, '--colors-primary600': colors.primary600, '--colors-primary700': colors.primary700 } as React.CSSProperties}>
     <h1 style={{ fontSize: 28, fontWeight: 700 }}>{selected ? `Figür Talebi · ${selected.requestNumber}` : 'Figür Talepleri ve Operasyon'}</h1><p>{selected ? 'Müşteri talebi, özel referans fotoğrafları ve teklif hazırlığı' : 'Yetkiler teklif, talep inceleme, operasyon ve özel fotoğraflar için backend’de ayrı doğrulanır.'}</p>
     {error && <p role="alert" style={{ color: '#b42318', background: '#fef2f2', padding: 12 }}>{error}</p>}
     {!selected && (loading ? <p>Yükleniyor…</p> : <>
