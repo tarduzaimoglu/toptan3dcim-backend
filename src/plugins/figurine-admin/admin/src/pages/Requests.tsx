@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth, useFetchClient } from "@strapi/strapi/admin";
 import { Badge, Button, Typography } from "@strapi/design-system";
-import styled, { useTheme } from "styled-components";
+import { useTheme } from "styled-components";
 
 type Work = {
   id: string;
@@ -63,28 +63,6 @@ const preferenceLabel: Record<string, string> = {
   monochrome: "Beyaz / tek renk",
   custom: "Özel",
 };
-const DesktopOnly = styled.div`
-  display: block;
-  @media (max-width: 767px) {
-    display: none;
-  }
-`;
-const MobileOnly = styled.div`
-  display: none;
-  @media (max-width: 767px) {
-    display: grid;
-    gap: 12px;
-  }
-`;
-const DetailGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
-  @media (max-width: 767px) {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-`;
 const blankScope = (item?: Work) => ({
   characters: item?.details?.characters || 1,
   pets: item?.details?.pets || 0,
@@ -130,6 +108,7 @@ export default function Requests() {
     "requests" | "accounts" | "retention" | "notifications"
   >("requests");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const [quoteDetailsOpen, setQuoteDetailsOpen] = useState(false),
     [quoteNotesOpen, setQuoteNotesOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
@@ -227,6 +206,13 @@ export default function Requests() {
     () => () => images.forEach((image) => URL.revokeObjectURL(image.src)),
     [images],
   );
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   useEffect(() => {
     const orderId = new URLSearchParams(window.location.search).get("order");
     const requestId = new URLSearchParams(window.location.search).get(
@@ -618,125 +604,130 @@ export default function Requests() {
                   <p>Henüz talep yok.</p>
                 ) : (
                   <>
-                    <DesktopOnly>
-                      <table
-                        style={{ width: "100%", borderCollapse: "collapse" }}
-                      >
-                        <thead>
-                          <tr>
-                            {[
-                              "Talep",
-                              "Müşteri",
-                              "Paket",
-                              "Tarih",
-                              "Durum",
-                            ].map((head) => (
-                              <th
-                                key={head}
-                                style={{
-                                  textAlign: "left",
-                                  padding: "12px 10px",
-                                  borderBottom: `1px solid ${colors.neutral200}`,
-                                  fontSize: 13,
-                                }}
-                              >
-                                {head}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {requests.map((item) => (
-                            <tr
-                              key={item.id}
-                              onClick={() => void open(item)}
-                              style={{ cursor: "pointer" }}
-                            >
-                              <td
-                                style={{
-                                  padding: 12,
-                                  borderBottom: `1px solid ${colors.neutral150}`,
-                                }}
-                              >
-                                <strong>{item.requestNumber}</strong>
-                              </td>
-                              <td
-                                style={{
-                                  padding: 12,
-                                  borderBottom: `1px solid ${colors.neutral150}`,
-                                }}
-                              >
-                                {item.customerName}
-                                <br />
-                                <small>{item.customerEmail}</small>
-                              </td>
-                              <td
-                                style={{
-                                  padding: 12,
-                                  borderBottom: `1px solid ${colors.neutral150}`,
-                                }}
-                              >
-                                {item.package?.title}
-                              </td>
-                              <td
-                                style={{
-                                  padding: 12,
-                                  borderBottom: `1px solid ${colors.neutral150}`,
-                                }}
-                              >
-                                {new Date(item.createdAt).toLocaleDateString(
-                                  "tr-TR",
-                                )}
-                              </td>
-                              <td
-                                style={{
-                                  padding: 12,
-                                  borderBottom: `1px solid ${colors.neutral150}`,
-                                }}
-                              >
-                                <Badge>
-                                  {requestStateLabel[item.state] || item.status}
-                                </Badge>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </DesktopOnly>
-                    <MobileOnly>
-                      {requests.map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() => void open(item)}
-                          style={{
-                            textAlign: "left",
-                            color: colors.neutral800,
-                            background: colors.neutral0,
-                            border: `1px solid ${colors.neutral200}`,
-                            borderRadius: 10,
-                            padding: 16,
-                            boxShadow: "0 2px 8px rgba(16,24,40,.05)",
-                            cursor: "pointer",
-                          }}
+                    {!isMobile && (
+                      <div>
+                        <table
+                          style={{ width: "100%", borderCollapse: "collapse" }}
                         >
-                          <strong>{item.requestNumber}</strong>
-                          <div style={{ marginTop: 6 }}>
-                            {item.customerName}
-                          </div>
-                          <div>{item.package?.title}</div>
-                          <small>
-                            {new Date(item.createdAt).toLocaleDateString(
-                              "tr-TR",
-                            )}
-                          </small>
-                          <div style={{ marginTop: 8 }}>
-                            <Badge>
-                              {requestStateLabel[item.state] || item.status}
-                            </Badge>
-                          </div>
-                        </button>
-                      ))}
-                    </MobileOnly>
+                          <thead>
+                            <tr>
+                              {[
+                                "Talep",
+                                "Müşteri",
+                                "Paket",
+                                "Tarih",
+                                "Durum",
+                              ].map((head) => (
+                                <th
+                                  key={head}
+                                  style={{
+                                    textAlign: "left",
+                                    padding: "12px 10px",
+                                    borderBottom: `1px solid ${colors.neutral200}`,
+                                    fontSize: 13,
+                                  }}
+                                >
+                                  {head}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {requests.map((item) => (
+                              <tr
+                                key={item.id}
+                                onClick={() => void open(item)}
+                                style={{ cursor: "pointer" }}
+                              >
+                                <td
+                                  style={{
+                                    padding: 12,
+                                    borderBottom: `1px solid ${colors.neutral150}`,
+                                  }}
+                                >
+                                  <strong>{item.requestNumber}</strong>
+                                </td>
+                                <td
+                                  style={{
+                                    padding: 12,
+                                    borderBottom: `1px solid ${colors.neutral150}`,
+                                  }}
+                                >
+                                  {item.customerName}
+                                  <br />
+                                  <small>{item.customerEmail}</small>
+                                </td>
+                                <td
+                                  style={{
+                                    padding: 12,
+                                    borderBottom: `1px solid ${colors.neutral150}`,
+                                  }}
+                                >
+                                  {item.package?.title}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: 12,
+                                    borderBottom: `1px solid ${colors.neutral150}`,
+                                  }}
+                                >
+                                  {new Date(item.createdAt).toLocaleDateString(
+                                    "tr-TR",
+                                  )}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: 12,
+                                    borderBottom: `1px solid ${colors.neutral150}`,
+                                  }}
+                                >
+                                  <Badge>
+                                    {requestStateLabel[item.state] ||
+                                      item.status}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    {isMobile && (
+                      <div style={{ display: "grid", gap: 12 }}>
+                        {requests.map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => void open(item)}
+                            style={{
+                              textAlign: "left",
+                              color: colors.neutral800,
+                              background: colors.neutral0,
+                              border: `1px solid ${colors.neutral200}`,
+                              borderRadius: 10,
+                              padding: 16,
+                              boxShadow: "0 2px 8px rgba(16,24,40,.05)",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <strong>{item.requestNumber}</strong>
+                            <div style={{ marginTop: 6 }}>
+                              {item.customerName}
+                            </div>
+                            <div>{item.package?.title}</div>
+                            <small>
+                              {new Date(item.createdAt).toLocaleDateString(
+                                "tr-TR",
+                              )}
+                            </small>
+                            <div style={{ marginTop: 8 }}>
+                              <Badge>
+                                {requestStateLabel[item.state] || item.status}
+                              </Badge>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </>
                 )}
               </section>
@@ -1031,7 +1022,15 @@ export default function Requests() {
           {detailTab === "request" && (
             <section style={panel}>
               <h2 style={titleStyle}>Müşteri ve talep özeti</h2>
-              <DetailGrid>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile
+                    ? "1fr"
+                    : "repeat(2,minmax(0,1fr))",
+                  gap: isMobile ? 16 : 24,
+                }}
+              >
                 <div>
                   <p>
                     <strong>Müşteri</strong>
@@ -1074,7 +1073,7 @@ export default function Requests() {
                     {selected.details?.plinthText || "Yazı yok"}
                   </p>
                 </div>
-              </DetailGrid>
+              </div>
               <p style={{ whiteSpace: "pre-wrap" }}>
                 <strong>Ek not</strong>
                 <br />
@@ -1181,7 +1180,15 @@ export default function Requests() {
           {detailTab === "quote" && (
             <section style={panel}>
               <h2 style={titleStyle}>Teklif kapsamı ve fiyat</h2>
-              <DetailGrid>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile
+                    ? "1fr"
+                    : "repeat(2,minmax(0,1fr))",
+                  gap: isMobile ? 16 : 24,
+                }}
+              >
                 <div>
                   <label>
                     {label("Tasarım kapsamı · zorunlu")}
@@ -1278,7 +1285,7 @@ export default function Requests() {
                     )}
                   </div>
                 </div>
-              </DetailGrid>
+              </div>
               <details
                 open={quoteDetailsOpen}
                 onToggle={(e) => setQuoteDetailsOpen(e.currentTarget.open)}
@@ -1422,10 +1429,7 @@ export default function Requests() {
                 >
                   Taslağı kaydet
                 </Button>
-                <Button
-                  disabled={busy}
-                  onClick={() => void saveOffer(true)}
-                >
+                <Button disabled={busy} onClick={() => void saveOffer(true)}>
                   Müşteriye sun
                 </Button>
               </div>
@@ -1589,10 +1593,38 @@ export default function Requests() {
           aria-modal="true"
           aria-label="Referans fotoğrafı ön izlemesi"
           onClick={() => setPreviewImage(null)}
-          style={{ position: "fixed", inset: 0, zIndex: 1000, display: "grid", placeItems: "center", padding: 24, background: "rgba(0,0,0,.78)" }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "grid",
+            placeItems: "center",
+            padding: 24,
+            background: "rgba(0,0,0,.78)",
+          }}
         >
-          <button onClick={() => setPreviewImage(null)} style={{ position: "absolute", top: 20, right: 20, padding: "10px 14px" }}>Kapat</button>
-          <img src={previewImage} alt="Büyütülmüş özel referans" style={{ maxWidth: "min(1100px,94vw)", maxHeight: "88vh", objectFit: "contain", background: colors.neutral0, borderRadius: 10 }} />
+          <button
+            onClick={() => setPreviewImage(null)}
+            style={{
+              position: "absolute",
+              top: 20,
+              right: 20,
+              padding: "10px 14px",
+            }}
+          >
+            Kapat
+          </button>
+          <img
+            src={previewImage}
+            alt="Büyütülmüş özel referans"
+            style={{
+              maxWidth: "min(1100px,94vw)",
+              maxHeight: "88vh",
+              objectFit: "contain",
+              background: colors.neutral0,
+              borderRadius: 10,
+            }}
+          />
         </div>
       )}
       {selectedOrder && (
