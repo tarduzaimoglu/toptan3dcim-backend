@@ -56,7 +56,8 @@ export default function Requests() {
       setRequestState(data.state || 'reviewing'); setCustomerStatus(data.status || 'İnceleniyor'); setRequestNote(data.internalNotes || '');
       if (data.order) setOperation({ fulfillmentState: data.order.fulfillmentState === 'unknown' ? 'preparing' : data.order.fulfillmentState, shippingCarrier: data.order.shippingCarrier, trackingNumber: data.order.trackingNumber, trackingUrl: data.order.trackingUrl, customerNote: data.order.customerNote, internalNote: data.order.internalNote });
       const blobs = await Promise.all((data.photos || []).map(async (photo: any) => {
-        const response = await get(`/figurine-admin/requests/${encodeURIComponent(item.id)}/photos/${encodeURIComponent(photo.id)}`, { responseType: 'blob' }); return URL.createObjectURL(response.data);
+        const response = await get(`/figurine-admin/requests/${encodeURIComponent(item.id)}/photos/${encodeURIComponent(photo.id)}`, { responseType: 'arraybuffer' });
+        return URL.createObjectURL(new Blob([response.data], { type: 'image/webp' }));
       })); setImages(blobs);
     } catch { setError('Talep detayı açılamadı. Fotoğraf ve işlem yetkilerinizi kontrol edin.'); }
   }
