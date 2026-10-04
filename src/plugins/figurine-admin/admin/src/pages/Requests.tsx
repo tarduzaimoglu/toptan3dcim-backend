@@ -63,12 +63,28 @@ const preferenceLabel: Record<string, string> = {
   monochrome: "Beyaz / tek renk",
   custom: "Özel",
 };
+const includedPartsText = (value: unknown) =>
+  Array.isArray(value)
+    ? value.filter((part): part is string => typeof part === "string").join("\n")
+    : typeof value === "string"
+      ? value
+      : "";
+const includedPartsPayload = (value: unknown) =>
+  includedPartsText(value)
+    .split(/\r?\n/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+const requestErrorMessage = (error: any, fallback: string) =>
+  error?.response?.data?.error?.message ||
+  error?.response?.data?.message ||
+  error?.message ||
+  fallback;
 const blankScope = (item?: Work) => ({
   characters: item?.details?.characters || 1,
   pets: item?.details?.pets || 0,
   colorChoice: item?.details?.style || "color",
   designDescription: "",
-  includedParts: [""],
+  includedParts: "",
   sizeDescription: "",
   standIncluded: null as boolean | null,
   boxIncluded: null as boolean | null,
@@ -119,6 +135,7 @@ export default function Requests() {
     [internalNote, setInternalNote] = useState(""),
     [validUntil, setValidUntil] = useState(""),
     [offerId, setOfferId] = useState("");
+  const [quoteErrors, setQuoteErrors] = useState<Record<string, string>>({});
   const [requestState, setRequestState] = useState("reviewing"),
     [customerStatus, setCustomerStatus] = useState("İnceleniyor"),
     [requestNote, setRequestNote] = useState("");
@@ -243,7 +260,7 @@ export default function Requests() {
         draft
           ? {
               ...draft.scope,
-              includedParts: (draft.scope.includedParts || []).join("\n"),
+              includedParts: includedPartsText(draft.scope?.includedParts),
             }
           : blankScope(data),
       );
@@ -265,6 +282,7 @@ export default function Requests() {
           : "",
       );
       setOfferId(draft?.id || "");
+      setQuoteErrors({});
       setRequestState(data.status || data.state || "reviewing");
       setCustomerStatus(data.customerStatusText || "İnceleniyor");
       setRequestNote(data.internalNotes || "");
@@ -316,19 +334,33 @@ export default function Requests() {
         {label(name)}
         {opts.multiline ? (
           <textarea
-            style={{ ...input, minHeight: 80 }}
+            style={{
+              ...input,
+              minHeight: 80,
+              ...(opts.error ? { borderColor: "#d02b20" } : {}),
+            }}
             value={value}
             maxLength={opts.max || 3000}
+            aria-invalid={Boolean(opts.error)}
             onChange={(e) => onChange(e.target.value)}
           />
         ) : (
           <input
-            style={input}
+            style={{
+              ...input,
+              ...(opts.error ? { borderColor: "#d02b20" } : {}),
+            }}
             type={opts.type || "text"}
             value={value}
             maxLength={opts.max || 1000}
+            aria-invalid={Boolean(opts.error)}
             onChange={(e) => onChange(e.target.value)}
           />
+        )}
+        {opts.error && (
+          <span style={{ display: "block", color: "#b42318", marginTop: -8 }}>
+            {opts.error}
+          </span>
         )}
       </label>
     );
@@ -343,12 +375,7 @@ export default function Requests() {
       ...(offerId ? { offerId } : {}),
       scope: {
         ...scope,
-        includedParts: scope.includedParts.split
-          ? scope.includedParts
-              .split("\n")
-              .map((v: string) => v.trim())
-              .filter(Boolean)
-          : scope.includedParts,
+        includedParts: includedPartsPayload(scope.includedParts),
       },
       amountMinor,
       taxMinor,
@@ -363,6 +390,30 @@ export default function Requests() {
   }
   async function saveOffer(present: boolean) {
     setError("");
+    setQuoteErrors({});
+    const fieldErrors: Record<string, string> = {};
+    const amount = Number(price.amount.replace(",", "."));
+    const tax = Number(price.tax.replace(",", "."));
+    const shipping = Number(price.shipping.replace(",", "."));
+    if (!scope.designDescription?.trim())
+      fieldErrors.designDescription = "Tasarım kapsamını yazın.";
+    if (!includedPartsPayload(scope.includedParts).length)
+      fieldErrors.includedParts =
+        "Dahil olan parçalar alanına en az bir madde girin.";
+    if (!Number.isFinite(amount) || amount <= 0)
+      fieldErrors.amount = "Sıfırdan büyük geçerli bir teklif tutarı girin.";
+    if (!Number.isFinite(tax) || tax < 0)
+      fieldErrors.tax = "Geçerli bir vergi tutarı girin.";
+    if (!Number.isFinite(shipping) || shipping < 0)
+      fieldErrors.shipping = "Geçerli bir kargo tutarı girin.";
+    if (!disclosure.trim())
+      fieldErrors.disclosure = "Vergi ve kargo kapsamını açıklayın.";
+    if (Object.keys(fieldErrors).length) {
+      setQuoteErrors(fieldErrors);
+      setQuoteDetailsOpen(true);
+      setError("Teklif kaydedilemedi. İşaretli zorunlu alanları tamamlayın.");
+      return;
+    }
     if (present) {
       const amountMinor = Math.round(
         Number(price.amount.replace(",", ".")) * 100,
@@ -416,10 +467,24 @@ export default function Requests() {
       await open({ ...selected, id: selected.id });
       await refresh();
     } catch (e: any) {
-      setError(
-        e?.response?.data?.message ||
-          "Teklif kaydedilemedi. Tutar/kapsam bilgilerini kontrol edin.",
+      const message = requestErrorMessage(
+        e,
+        "Teklif kaydedilemedi. Tutar ve kapsam bilgilerini kontrol edin.",
       );
+      if (/dahil olan parçalar/i.test(message)) {
+        setQuoteDetailsOpen(true);
+        setQuoteErrors({
+          includedParts: "Dahil olan parçalar alanına en az bir madde girin.",
+        });
+      } else if (/kişi\/pet/i.test(message)) setQuoteErrors({ people: message });
+      else if (/teklif tutarı/i.test(message)) setQuoteErrors({ amount: message });
+      else if (/vergi tutarı/i.test(message)) setQuoteErrors({ tax: message });
+      else if (/kargo tutarı/i.test(message)) setQuoteErrors({ shipping: message });
+      else if (/kapsam|açıklama/i.test(message)) {
+        setQuoteDetailsOpen(true);
+        setQuoteErrors({ disclosure: message });
+      }
+      setError(message);
     } finally {
       setBusy(false);
     }
@@ -1193,8 +1258,15 @@ export default function Requests() {
                   <label>
                     {label("Tasarım kapsamı · zorunlu")}
                     <textarea
-                      style={{ ...input, minHeight: 130 }}
+                      style={{
+                        ...input,
+                        minHeight: 130,
+                        ...(quoteErrors.designDescription
+                          ? { borderColor: "#d02b20" }
+                          : {}),
+                      }}
                       value={scope.designDescription}
+                      aria-invalid={Boolean(quoteErrors.designDescription)}
                       onChange={(e) =>
                         setScope({
                           ...scope,
@@ -1202,6 +1274,11 @@ export default function Requests() {
                         })
                       }
                     />
+                    {quoteErrors.designDescription && (
+                      <span style={{ color: "#b42318" }}>
+                        {quoteErrors.designDescription}
+                      </span>
+                    )}
                   </label>
                   <div
                     style={{
@@ -1250,20 +1327,28 @@ export default function Requests() {
                       </select>
                     </label>
                   </div>
+                  {quoteErrors.people && (
+                    <p style={{ color: "#b42318" }}>{quoteErrors.people}</p>
+                  )}
                 </div>
                 <div>
                   {inputField(
                     "Teklif tutarı (TL) · zorunlu",
                     price.amount,
                     (amount: string) => setPrice({ ...price, amount }),
+                    { error: quoteErrors.amount },
                   )}
-                  {inputField("Vergi tutarı (TL)", price.tax, (tax: string) =>
-                    setPrice({ ...price, tax }),
+                  {inputField(
+                    "Vergi tutarı (TL)",
+                    price.tax,
+                    (tax: string) => setPrice({ ...price, tax }),
+                    { error: quoteErrors.tax },
                   )}
                   {inputField(
                     "Kargo tutarı (TL)",
                     price.shipping,
                     (shipping: string) => setPrice({ ...price, shipping }),
+                    { error: quoteErrors.shipping },
                   )}
                   <div
                     style={{
@@ -1356,14 +1441,28 @@ export default function Requests() {
                     </label>
                   </div>
                   <label>
-                    {label("Dahil olan parçalar (satır başına bir madde)")}
+                    {label(
+                      "Dahil olan parçalar (satır başına bir madde) · zorunlu",
+                    )}
                     <textarea
-                      style={{ ...input, minHeight: 70 }}
-                      value={scope.includedParts.join("\n")}
+                      style={{
+                        ...input,
+                        minHeight: 70,
+                        ...(quoteErrors.includedParts
+                          ? { borderColor: "#d02b20" }
+                          : {}),
+                      }}
+                      value={includedPartsText(scope.includedParts)}
+                      aria-invalid={Boolean(quoteErrors.includedParts)}
                       onChange={(e) =>
                         setScope({ ...scope, includedParts: e.target.value })
                       }
                     />
+                    {quoteErrors.includedParts && (
+                      <span style={{ color: "#b42318" }}>
+                        {quoteErrors.includedParts}
+                      </span>
+                    )}
                   </label>
                   {inputField(
                     "Boyut açıklaması",
@@ -1381,7 +1480,7 @@ export default function Requests() {
                     "Vergi ve kargo kapsamı açıklaması · zorunlu",
                     disclosure,
                     setDisclosure,
-                    { multiline: true },
+                    { multiline: true, error: quoteErrors.disclosure },
                   )}
                 </div>
               </details>
