@@ -460,6 +460,7 @@ export default ({ strapi }: any) => {
     async figurineCustomerPhoto(sessionToken: string, requestId: string, assetKey: string) { const auth = await authenticate(sessionToken); return figurines.customerPhoto(auth.user.id, requestId, assetKey); },
     async figurineAdminList(admin: any) { return figurines.adminList(admin); },
     async figurineAdminDetail(admin: any, requestId: string) { return figurineWorkflow.adminDetail(admin, requestId); },
+    async figurineAdminOrderDetail(admin: any, orderId: string) { return figurineWorkflow.adminOrderDetail(admin, orderId); },
     async figurineAdminDashboard(admin: any) { return figurineWorkflow.adminList(admin); },
     async figurineAdminSaveOffer(admin: any, requestId: string, data: any, present: boolean) { return figurineWorkflow.adminSaveOffer(admin, requestId, data, present); },
     async figurineAdminWithdrawOffer(admin: any, requestId: string, offerId: string) { return figurineWorkflow.adminWithdrawOffer(admin, requestId, offerId); },

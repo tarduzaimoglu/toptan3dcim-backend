@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { CustomerError, digest, fields, text, email, phone } from '../customer/security';
 import cartFactory from './cart';
+import { queueBusinessOrder } from './business-notifications';
 
 export default (strapi: any) => {
   const cart = cartFactory(strapi), orders = () => strapi.db.query('api::order.order');
@@ -58,12 +59,14 @@ export default (strapi: any) => {
           if (q.quoteHash !== data.quoteHash) throw new CustomerError(409, 'Fiyat değişti. Güncel toplamı kontrol edip yeniden onaylayın.');
           // checkout does not modify the cart: undo revision increment while retaining transaction lock.
           if (c) await strapi.db.query('api::customer-cart.customer-cart').update({ where: { id: c.id }, data: { revision: data.revision } });
-          return strapi.documents('api::order.order').create({ data: { checkoutKey, checkoutHash, guestHash: owner ? null : digest(data.guestKey),
+          const created = await strapi.documents('api::order.order').create({ data: { checkoutKey, checkoutHash, guestHash: owner ? null : digest(data.guestKey),
             orderNumber: `ORD-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(5).toString('hex').toUpperCase()}`, status: 'pending', paymentState: 'pending',
-            items: q.lines.map(l => ({ productId: l.productId, isim: l.isim, adet: l.adet, birimFiyat: l.birimFiyat, satirToplami: l.satirToplami, variant: l.variant })),
+            items: q.lines.map(l => ({ productId: l.productId, isim: l.isim, adet: l.adet, birimFiyat: l.birimFiyat, satirToplami: l.satirToplami, variant: l.variant, imageUrl: l.product?.imageUrl || null })),
             ...Object.fromEntries(['subtotal','discountTotal','vatTotal','shippingCost','grandTotal','currency'].map(k => [k,q[k]])),
             buyerName: buyer.name, buyerEmail: buyer.email, buyerPhone: buyer.phone, shippingAddress, billingAddress,
             contractAccepted: true, contractAcceptedAt: new Date().toISOString(), user: owner || null, cartSnapshot: q.lines.map(l => ({ ...cart.stored([l])[0], sourceProductId: l.sourceProductId })) } });
+          await queueBusinessOrder(strapi, trx, created);
+          return created;
         });
       } catch (e) { order = await orders().findOne({ where: { checkoutKey } }); if (!order) throw e; if (order.checkoutHash !== checkoutHash) throw new CustomerError(409, 'Ödeme isteği çakıştı.'); }
     }

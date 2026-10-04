@@ -40,8 +40,9 @@ export default (strapi: any) => {
       const unit = Math.round(pricing.effectiveUnitPriceTRY(base, qty) * 100), total = Math.round(pricing.effectiveUnitPriceTRY(base, qty) * qty * 100);
       subtotal += Math.round(base * qty * 100); discountTotal += Math.round(base * qty * 100) - total;
       if (row.price != null && Number(row.price) !== base) warnings.push(`${product.title}: fiyat güncellendi.`);
+      const productImage = Array.isArray(product.image) ? product.image.find((image: any) => typeof image?.url === 'string') : product.image;
       lines.push({ id: key, productId, sourceProductId: id, qty, variant: color ? { colorName: color } : null, price: base,
-        product: { id: productId, title: product.title, wholesalePrice: base, minQty: min, imageUrl: product.image?.url },
+        product: { id: productId, title: product.title, wholesalePrice: base, minQty: min, imageUrl: productImage?.url || null },
         isim: product.title, adet: qty, birimFiyat: unit, satirToplami: total });
     }
     const net = subtotal - discountTotal, shippingCost = pricing.shippingFeeForKurus(net);

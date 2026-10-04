@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { CustomerError, digest, fields, iso, text, seal } from '../customer/security';
 import { operator } from './authorization';
 import operationsFactory from './operations';
+import { queueBusinessOrder } from './business-notifications';
 
 const requestUid = 'api::figurine-request.figurine-request';
 const offerUid = 'api::figurine-offer.figurine-offer';
@@ -186,6 +187,7 @@ export default (strapi: any) => {
       await audit(trx, `customer:${owner}`, request.id, order.id, 'accepted', 'order-created', { offerVersion: offer.version, orderNumber: order.orderNumber, totalMinor: total, currency: offer.currency });
       await putOutbox(trx, `figurine-order:${order.id}:created`, locked.owner.email, 'Figür siparişiniz oluşturuldu',
         `${order.orderNumber} numaralı siparişiniz oluşturuldu. Ödeme ve sipariş durumunu hesabınızdan görüntüleyin: ${new URL(`/hesap/figur-talepleri/${request.documentId}`, process.env.CUSTOMER_PUBLIC_ORIGIN || 'http://localhost:3000')}`, request.id);
+      await queueBusinessOrder(strapi, trx, order);
       return { orderId: order.documentId, orderNumber: order.orderNumber, paymentState: order.paymentState, repeated: false };
     });
   }
@@ -256,6 +258,20 @@ export default (strapi: any) => {
       order: order ? { id: order.documentId, orderNumber: order.orderNumber, status: order.status, paymentState: order.paymentState || order.status,
         fulfillmentState: order.fulfillmentState || 'unknown', shippingCarrier: order.shippingCarrier || '', trackingNumber: order.trackingNumber || '', trackingUrl: order.trackingUrl || '', customerNote: order.fulfillmentCustomerNote || '', internalNote: order.fulfillmentInternalNote || '' } : null,
       returns: returnRows.map((r: any) => ({ id: r.documentId, orderNumber: r.order?.orderNumber, reason: r.reason, state: r.state, customerNote: r.customerNote || '', staffNote: r.staffNote || '', createdAt: r.createdAt })),
+    };
+  }
+  async function adminOrderDetail(admin: any, orderId: string) {
+    await checkAdmin(admin, 'operations');
+    const order = await orders().findOne({ where: { documentId: id(orderId) } });
+    if (!order) throw fail(404, 'Sipariş bulunamadı.');
+    return {
+      id: order.documentId, orderNumber: order.orderNumber, createdAt: order.createdAt,
+      buyerName: order.buyerName, buyerEmail: order.buyerEmail, buyerPhone: order.buyerPhone || '',
+      shippingAddress: order.shippingAddress || null, items: Array.isArray(order.items) ? order.items : [],
+      subtotal: order.subtotal, discountTotal: order.discountTotal, vatTotal: order.vatTotal,
+      shippingCost: order.shippingCost, grandTotal: order.grandTotal, currency: order.currency,
+      paymentState: order.paymentState || order.status, fulfillmentState: order.fulfillmentState || null,
+      customerNote: order.fulfillmentCustomerNote || '', internalNote: order.fulfillmentInternalNote || '',
     };
   }
   async function adminList(admin: any) {
@@ -427,6 +443,7 @@ export default (strapi: any) => {
     },
     async adminList(admin: any) { return adminList(admin); },
     async adminDetail(admin: any, requestId: string) { return adminDetail(admin, requestId); },
+    async adminOrderDetail(admin: any, orderId: string) { return adminOrderDetail(admin, orderId); },
     async adminSaveOffer(admin: any, requestId: string, input: any, present: boolean) { return adminSaveOffer(admin, requestId, input, present); },
     async adminWithdrawOffer(admin: any, requestId: string, offerId: string) { return adminWithdrawOffer(admin, requestId, offerId); },
     async adminRequestUpdate(admin: any, requestId: string, input: any) { return adminRequestUpdate(admin, requestId, input); },

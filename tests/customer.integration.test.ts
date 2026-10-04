@@ -15,7 +15,7 @@ async function main() {
     HOST: '127.0.0.1', PORT: '0', APP_KEYS: crypto.randomBytes(32).toString('hex'), JWT_SECRET: crypto.randomBytes(32).toString('hex'),
     ADMIN_JWT_SECRET: crypto.randomBytes(32).toString('hex'), API_TOKEN_SALT: crypto.randomBytes(32).toString('hex'), TRANSFER_TOKEN_SALT: crypto.randomBytes(32).toString('hex'), ENCRYPTION_KEY: crypto.randomBytes(32).toString('hex'),
     CUSTOMER_ACCOUNTS_ENABLED: 'true', CUSTOMER_SCHEMA_SETUP: 'true', FIGURINE_REQUESTS_ENABLED: 'true', FIGURINE_STORAGE_DRIVER: 'local', FIGURINE_MAIL_MODE: 'file', FIGURINE_ADMIN_ROLE_NAMES: 'Super Admin', FIGURINE_REVIEW_ROLE_NAMES: 'Super Admin', FIGURINE_QUOTE_ROLE_NAMES: 'Super Admin', FIGURINE_OPERATIONS_ROLE_NAMES: 'Super Admin', FIGURINE_PHOTO_ROLE_NAMES: 'Super Admin', CUSTOMER_DATA_ADMIN_ROLE_NAMES: 'Super Admin', CUSTOMER_RETENTION_EXECUTION_ENABLED: 'true', CUSTOMER_BFF_SECRET: crypto.randomBytes(32).toString('hex'),
-    CUSTOMER_TOKEN_ENCRYPTION_KEY: crypto.randomBytes(32).toString('base64'), CUSTOMER_PUBLIC_ORIGIN: 'http://localhost:3210', CUSTOMER_MAIL_MODE: 'file', STRAPI_TELEMETRY_DISABLED: 'true' });
+    CUSTOMER_TOKEN_ENCRYPTION_KEY: crypto.randomBytes(32).toString('base64'), CUSTOMER_PUBLIC_ORIGIN: 'http://localhost:3210', CUSTOMER_STAFF_ADMIN_ORIGIN: 'https://staff.example.test', BUSINESS_NOTIFICATION_EMAIL: 'business@example.test', CUSTOMER_MAIL_MODE: 'file', STRAPI_TELEMETRY_DISABLED: 'true' });
   if (process.argv.includes('--postgres')) {
     const connection = new URL(process.env.CUSTOMER_TEST_POSTGRES_URL || '');
     if (!['127.0.0.1','localhost','[::1]'].includes(connection.hostname) || !/^\/customer_test_[a-z0-9_]+$/.test(connection.pathname)) throw new Error('PostgreSQL tests require a dedicated localhost customer_test_* database');
@@ -233,7 +233,7 @@ async function main() {
       const selected = packages.body.packages.find((p: any) => p.key === 'color-one-character');
       const bytes = await require('sharp')({ create: { width: 8, height: 8, channels: 3, background: '#cc3366' } }).png().toBuffer();
       const fileKey = crypto.randomUUID();
-      const payload = { style: 'color', people: [{ id: 'person-one', kind: 'person', description: 'test', outfit: 'blue', pose: 'standing', hair: 'short', accessories: '', fileKeys: [fileKey] }], base: '', plinthText: '', note: 'local request', contactPreference: 'email', phone: '', fullName: 'Alice Test', consent: true, privacyVersion: `test-${runId}`, declaredFileKeys: [fileKey] };
+      const payload = { style: 'color', people: [{ id: 'person-one', kind: 'person', description: 'test', outfit: 'blue', pose: 'standing', hair: 'short', accessories: '', fileKeys: [fileKey] }], base: '', plinthText: '', note: '<img src=x onerror=alert(1)>&', contactPreference: 'email', phone: '', fullName: 'Alice Test', consent: true, privacyVersion: `test-${runId}`, declaredFileKeys: [fileKey] };
       assert.equal((await request('figurine-draft', { packageId: selected.id, payload }, aToken)).status, 200);
       assert.equal((await request('figurine-upload-sign', { fileKey, name: 'portrait.png', mime: 'image/png', size: bytes.length }, bToken)).status, 409);
       const signed = await request('figurine-upload-sign', { fileKey, name: 'portrait.png', mime: 'image/png', size: bytes.length }, aToken);
@@ -262,7 +262,12 @@ async function main() {
       const guessedPublicPath = await fetch(`${origin}/uploads/${encodeURIComponent(fileKey)}`); assert.notEqual(guessedPublicPath.status, 200);
       const requestRows = await app.db.query('api::figurine-request.figurine-request').findMany({ where: { requestKey } }); assert.equal(requestRows.length, 1);
       const outboxQuery = app.db.query('api::figurine-outbox.figurine-outbox');
-      const outbox = await outboxQuery.findOne({ where: { request: { id: requestRows[0].id } } }); assert.ok(outbox); assert.notEqual(outbox.encryptedPayload, '');
+      const requestOutboxes = await outboxQuery.findMany({ where: { request: { id: requestRows[0].id } } });
+      assert.equal(requestOutboxes.length, 2); assert.deepEqual(requestOutboxes.map((job: any) => job.audience).sort(), ['business', 'customer']);
+      const business = requestOutboxes.find((job: any) => job.audience === 'business');
+      assert.equal(business.recipient, 'business@example.test');
+      const businessPayload = open(business.encryptedPayload); assert.match(businessPayload.subject, /^Yeni figür talebi/); assert.ok(businessPayload.html.includes('&lt;img')); assert.ok(!businessPayload.html.includes('<img src=x onerror')); assert.ok(!businessPayload.html.includes('/figurine-photo/')); assert.ok(!businessPayload.html.includes('fileKey'));
+      const outbox = requestOutboxes.find((job: any) => job.audience === 'customer'); assert.ok(outbox); assert.notEqual(outbox.encryptedPayload, '');
       process.env.FIGURINE_MAIL_MODE = 'smtp'; process.env.CUSTOMER_SMTP_HOST = '127.0.0.1'; process.env.CUSTOMER_SMTP_PORT = '1'; process.env.CUSTOMER_SMTP_USER = ''; process.env.CUSTOMER_SMTP_PASS = '';
       await service.figurineOutbox();
       const failed = await outboxQuery.findOne({ where: { id: outbox.id } }); assert.equal(failed.status, 'failed'); assert.ok(failed.attempts > 0); assert.ok(failed.encryptedPayload);

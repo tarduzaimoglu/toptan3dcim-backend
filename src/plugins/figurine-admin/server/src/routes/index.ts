@@ -2,6 +2,7 @@ export default [
   { method: 'GET', path: '/dashboard', handler: 'figurines.dashboard', config: { policies: ['admin::isAuthenticatedAdmin'] } },
   { method: 'GET', path: '/requests', handler: 'figurines.find', config: { policies: ['admin::isAuthenticatedAdmin'] } },
   { method: 'GET', path: '/requests/:requestId', handler: 'figurines.detail', config: { policies: ['admin::isAuthenticatedAdmin'] } },
+  { method: 'GET', path: '/orders/:orderId', handler: 'figurines.orderDetail', config: { policies: ['admin::isAuthenticatedAdmin'] } },
   { method: 'PUT', path: '/requests/:requestId', handler: 'figurines.requestUpdate', config: { policies: ['admin::isAuthenticatedAdmin'] } },
   { method: 'PUT', path: '/requests/:requestId/offers', handler: 'figurines.saveOffer', config: { policies: ['admin::isAuthenticatedAdmin'] } },
   { method: 'POST', path: '/requests/:requestId/offers/:offerId/present', handler: 'figurines.presentOffer', config: { policies: ['admin::isAuthenticatedAdmin'] } },

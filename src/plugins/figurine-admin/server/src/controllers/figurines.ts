@@ -12,6 +12,10 @@ export default ({ strapi }: any) => ({
     try { ctx.body = await strapi.service('api::customer.customer').figurineAdminDetail(ctx.state.user, ctx.params.requestId); ctx.set('Cache-Control', 'no-store'); }
     catch (e: any) { ctx.status = e instanceof CustomerError ? e.status : 503; ctx.body = { message: e instanceof CustomerError ? e.message : 'Talep detayı açılamadı.' }; }
   },
+  async orderDetail(ctx: any) {
+    try { ctx.body = await strapi.service('api::customer.customer').figurineAdminOrderDetail(ctx.state.user, ctx.params.orderId); ctx.set('Cache-Control', 'no-store'); }
+    catch (e: any) { ctx.status = e instanceof CustomerError ? e.status : 503; ctx.body = { message: e instanceof CustomerError ? e.message : 'Sipariş açılamadı.' }; }
+  },
   async requestUpdate(ctx: any) {
     try { ctx.body = await strapi.service('api::customer.customer').figurineAdminRequestUpdate(ctx.state.user, ctx.params.requestId, ctx.request.body || {}); ctx.set('Cache-Control', 'no-store'); }
     catch (e: any) { ctx.status = e instanceof CustomerError ? e.status : 503; ctx.body = { message: e instanceof CustomerError ? e.message : 'Talep güncellenemedi.' }; }

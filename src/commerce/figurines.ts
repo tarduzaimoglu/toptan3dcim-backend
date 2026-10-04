@@ -5,6 +5,7 @@ import sharp from 'sharp';
 import { digest, equal, fields, iso, open, randomToken, seal, text, CustomerError } from '../customer/security';
 import storage from './figurine-storage';
 import { operator, dataAdministrator } from './authorization';
+import { queueBusinessFigurine } from './business-notifications';
 
 const pkgUid = 'api::figurine-package.figurine-package';
 const uid = (name: string) => `api::figurine-${name}.figurine-${name}`;
@@ -179,6 +180,7 @@ export default ({ strapi }: any) => {
         const outbox = await q('outbox').create({ data: { eventKey: `figurine-request:${request.id}:received`, recipient: user.email, encryptedPayload: seal(payloadMail), status: 'pending', attempts: 0,
           nextAttemptAt: iso(), request: request.id }, transacting: trx });
         if (!outbox) throw new Error('Figurine notification outbox unavailable');
+        await queueBusinessFigurine(strapi, trx, request);
         await q('draft').delete({ where: { id: draft.id, owner: { id: owner } }, transacting: trx });
         return safeRequest(request);
       });
@@ -210,8 +212,8 @@ export default ({ strapi }: any) => {
   }
   async function adminOutbox(admin: any) {
     await checkAdmin(admin);
-    const jobs = await q('outbox').findMany({ orderBy: { createdAt: 'desc' }, limit: 100, populate: ['request'] });
-    return jobs.map((job: any) => ({ id: job.documentId, requestNumber: job.request?.requestNumber || null, status: job.status,
+    const jobs = await q('outbox').findMany({ orderBy: { createdAt: 'desc' }, limit: 100, populate: ['request', 'order'] });
+    return jobs.map((job: any) => ({ id: job.documentId, audience: job.audience || 'customer', requestNumber: job.request?.requestNumber || null, orderNumber: job.order?.orderNumber || null, status: job.status,
       attempts: job.attempts, lastErrorCode: job.lastErrorCode || null, nextAttemptAt: job.nextAttemptAt, createdAt: job.createdAt }));
   }
   async function retryOutbox(admin: any, id: string) {

@@ -5,6 +5,7 @@
   "pluginOptions": { "content-manager": { "visible": false }, "content-type-builder": { "visible": false } },
   "attributes": {
     "eventKey": { "type": "string", "required": true, "unique": true, "private": true },
+    "audience": { "type": "enumeration", "enum": ["customer", "business"], "default": "customer" },
     "recipient": { "type": "email", "required": true, "private": true },
     "encryptedPayload": { "type": "text", "required": true, "private": true },
     "status": { "type": "enumeration", "enum": ["pending", "processing", "sent", "failed"], "default": "pending" },
@@ -12,6 +13,7 @@
     "nextAttemptAt": { "type": "datetime" },
     "lockUntil": { "type": "datetime", "private": true },
     "lastErrorCode": { "type": "string", "private": true },
-    "request": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-request.figurine-request", "private": true }
+    "request": { "type": "relation", "relation": "manyToOne", "target": "api::figurine-request.figurine-request", "private": true },
+    "order": { "type": "relation", "relation": "manyToOne", "target": "api::order.order", "private": true }
   }
 }

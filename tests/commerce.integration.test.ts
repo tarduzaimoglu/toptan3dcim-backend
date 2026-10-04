@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import { XMLParser } from 'fast-xml-parser';
 import { settleGuestCart } from '../../toptan3dcim-frontend/lib/cart-settlement';
+import { open } from '../src/customer/security';
 
 export async function commerceTests({ app, request, test, aliceUser, aToken, bToken, addressId }: any) {
   console.log('Stage 2: bank transport is MOCKED; no real bank requests');
@@ -76,6 +77,10 @@ export async function commerceTests({ app, request, test, aliceUser, aToken, bTo
       const repeats = await Promise.all([request('checkout', member.data, aToken), request('checkout', member.data, aToken)]);
       assert.deepEqual(repeats.map(r => r.status), [200,200]); assert.equal(requestCount, count);
       assert.equal(await orders().count({ where: { checkoutKey: memberOrder.checkoutKey } }), 1);
+      const businessJobs = await app.db.query('api::figurine-outbox.figurine-outbox').findMany({ where: { order: { id: memberOrder.id }, audience: 'business' } });
+      assert.equal(businessJobs.length, 1, 'checkout retries must not duplicate the business notification');
+      const businessMail = open(businessJobs[0].encryptedPayload);
+      assert.match(businessMail.subject, /^Yeni sipariş/); assert.match(businessMail.text, /Ödeme durumu: pending/); assert.match(businessMail.text, /üretimin başladığı anlamına gelmez/);
       assert.equal((await request('checkout', { ...member.data, userId: 99 }, aToken)).status, 400);
       const other = await checkout(bToken, { shippingAddressId: addressId }); assert.equal(other.result.status, 404);
       const guest = await checkout(); assert.equal(guest.result.status, 200);
