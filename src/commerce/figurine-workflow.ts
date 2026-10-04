@@ -278,7 +278,7 @@ export default (strapi: any) => {
     await checkAdmin(admin, 'review');
     const [rows, actionOrders, returnRows] = await Promise.all([
       requests().findMany({ orderBy: { updatedAt: 'desc' }, limit: 100, populate: ['owner'] }),
-      orders().findMany({ where: { figurineRequest: { id: { $notNull: true } }, $or: [{ status: { $ne: 'paid' } }, { fulfillmentState: { $nin: ['delivered', 'cancelled'] } }] }, orderBy: { updatedAt: 'desc' }, limit: 100, populate: ['figurineRequest', 'user'] }),
+      orders().findMany({ where: { figurineRequest: { id: { $notNull: true } }, $or: [{ status: { $ne: 'paid' } }, { fulfillmentState: { $notIn: ['delivered', 'cancelled'] } }] }, orderBy: { updatedAt: 'desc' }, limit: 100, populate: ['figurineRequest', 'user'] }),
       returns().findMany({ where: { state: { $in: ['submitted', 'reviewing'] } }, orderBy: { createdAt: 'asc' }, limit: 100, populate: ['request', 'order', 'owner'] }),
     ]);
     return { requests: rows.map((r: any) => ({ id: r.documentId, requestNumber: r.requestNumber, status: r.customerStatusText || 'Talep alındı', state: r.status,
